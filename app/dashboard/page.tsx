@@ -4,20 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AddMediaModal } from "@/components/add-media-modal";
-import { MediaCard } from "@/components/media-card";
-import { ThemeToggle } from "@/components/theme-toggle";
+} from "@/components/ui/Dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import { AddMediaModal } from "@/components/AddMediaModal";
+import { MediaCard } from "@/components/MediaCard";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Id } from "@/convex/_generated/dataModel";
 import { ArrowUpDown, Grid, List as ListIcon, Menu, X } from "lucide-react";
 
