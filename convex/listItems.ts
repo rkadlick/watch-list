@@ -3,7 +3,10 @@ import { v } from "convex/values";
 
 // Helper function to get user's role in a list
 function getUserRole(
-  list: { ownerId: string; members: Array<{ clerkId: string; role: "admin" | "viewer" }> },
+  list: {
+    ownerId: string;
+    members: Array<{ clerkId: string; role: "admin" | "viewer" }>;
+  },
   clerkId: string
 ): "creator" | "admin" | "viewer" | null {
   if (list.ownerId === clerkId) {
@@ -186,7 +189,9 @@ export const updateStatus = mutation({
           status: args.status,
         });
       } else {
-        throw new Error("For TV shows, update season status instead of show status");
+        throw new Error(
+          "For TV shows, update season status instead of show status"
+        );
       }
     }
 
@@ -202,7 +207,12 @@ export const updateSeasonStatus = mutation({
   args: {
     listItemId: v.id("listItems"),
     seasonNumber: v.number(),
-    status: v.union(v.literal("to_watch"), v.literal("watching"), v.literal("watched"), v.literal("dropped")),
+    status: v.union(
+      v.literal("to_watch"),
+      v.literal("watching"),
+      v.literal("watched"),
+      v.literal("dropped")
+    ),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -233,24 +243,26 @@ export const updateSeasonStatus = mutation({
       throw new Error("This function is only for TV shows");
     }
 
-    // Check if trying to set a season to "watching" when another is already "watching"
+    // Handle switching "watching" season — only one allowed at a time
+    let currentProgress = listItem.seasonProgress || [];
+
     if (args.status === "watching") {
-      const currentProgress = listItem.seasonProgress || [];
-      const otherWatching = currentProgress.find(
-        (p) => p.seasonNumber !== args.seasonNumber && p.status === "watching"
+      // If another season is currently "watching", reset it to "to_watch"
+      currentProgress = currentProgress.map((p) =>
+        p.status === "watching" && p.seasonNumber !== args.seasonNumber
+          ? { ...p, status: "to_watch" }
+          : p
       );
-      if (otherWatching) {
-        throw new Error("Only one season can be 'watching' at a time");
-      }
     }
 
     // Update season progress
-    const currentProgress = listItem.seasonProgress || [];
     let newProgress = [...currentProgress];
 
     if (args.status === "to_watch") {
       // Remove from progress if setting to "to_watch"
-      newProgress = newProgress.filter((p) => p.seasonNumber !== args.seasonNumber);
+      newProgress = newProgress.filter(
+        (p) => p.seasonNumber !== args.seasonNumber
+      );
     } else {
       // Add or update season status
       const existingIndex = newProgress.findIndex(
@@ -273,7 +285,9 @@ export const updateSeasonStatus = mutation({
     // Calculate overall show status based on season statuses
     const allSeasons = media.seasonData || [];
     const seasonStatuses = allSeasons.map((season) => {
-      const progress = newProgress.find((p) => p.seasonNumber === season.seasonNumber);
+      const progress = newProgress.find(
+        (p) => p.seasonNumber === season.seasonNumber
+      );
       if (progress?.status === "watched") return "watched";
       if (progress?.status === "watching") return "watching";
       if (progress?.status === "dropped") return "dropped";
@@ -426,11 +440,7 @@ export const updatePriority = mutation({
   args: {
     listItemId: v.id("listItems"),
     priority: v.optional(
-      v.union(
-        v.literal("low"),
-        v.literal("medium"),
-        v.literal("high")
-      )
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
     ),
   },
   handler: async (ctx, args) => {
@@ -770,4 +780,3 @@ export const updateSeasonDates = mutation({
     });
   },
 });
-
