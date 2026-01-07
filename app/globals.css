@@ -123,3 +123,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+.masonry-column {
+  background-clip: padding-box;
+}
+.masonry-column > * {
+  margin-bottom: 1rem; /* vertical spacing between cards */
+}

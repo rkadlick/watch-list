@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import Masonry from "react-masonry-css";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/Dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { AddMediaModal } from "@/components/AddMediaModal";
-import { MediaCard } from "@/components/MediaCard";
+import { MediaCard } from "@/components/media-card/MediaCard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Id } from "@/convex/_generated/dataModel";
 import { ArrowUpDown, Grid, List as ListIcon, Menu, X } from "lucide-react";
@@ -144,6 +145,7 @@ export default function DashboardPage() {
     if (filteredItems === undefined) {
       return <div className="flex h-64 items-center justify-center">Loading...</div>;
     }
+  
     if (filteredItems.length === 0) {
       return (
         <Card className="border-dashed">
@@ -156,30 +158,38 @@ export default function DashboardPage() {
         </Card>
       );
     }
-
-    const getGridClasses = () => {
-      if (viewMode === "list") {
-        return "grid grid-cols-1 gap-3";
-      }
-      // Grid view with different column counts based on card size
-      switch (cardSize) {
-        case "small":
-          return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3";
-        case "normal":
-          return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4";
-        case "large":
-          return "grid grid-cols-1 lg:grid-cols-2 gap-4";
-        default:
-          return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3";
-      }
+  
+    // breakpoints control # of columns
+    const breakpoints = {
+      default: cardSize === "large" ? 2 : 4,
+      1600: cardSize === "large" ? 2 : 4,
+      1280: cardSize === "large" ? 2 : 3,
+      1024: cardSize === "large" ? 2 : 2,
+      768: 1,
     };
-
+  
+    // List view remains unchanged
+    if (viewMode === "list") {
+      return (
+        <div className="space-y-3">
+          {filteredItems.map((item) => (
+            <MediaCard key={item._id} listItem={item} size={cardSize} />
+          ))}
+        </div>
+      );
+    }
+  
+    // Masonry layout for grid mode
     return (
-      <div className={getGridClasses()}>
+      <Masonry
+        breakpointCols={breakpoints}
+        className="flex gap-4"
+        columnClassName="masonry-column flex flex-col gap-4"
+      >
         {filteredItems.map((item) => (
           <MediaCard key={item._id} listItem={item} size={cardSize} />
         ))}
-      </div>
+      </Masonry>
     );
   };
 
