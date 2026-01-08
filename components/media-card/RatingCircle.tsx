@@ -5,7 +5,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/components/ui/Tooltip";
 
 export function RatingCircle({
   score,

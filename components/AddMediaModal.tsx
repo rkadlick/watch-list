@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
@@ -53,6 +54,7 @@ export function AddMediaModal({
     setIsSearching(true);
     try {
       const results = await searchTMDB({ query: searchQuery });
+      console.log(results);
       setSearchResults(results || []);
       setVisibleCount(12);
     } catch (error) {
@@ -93,11 +95,6 @@ export function AddMediaModal({
     return item.title || item.name || "Unknown";
   };
 
-  const getPlatform = (item: any) => {
-    // TMDB search API doesn't provide streaming service in this response; placeholder until provider data is wired.
-    return item.streamingService ?? "Unknown";
-  };
-
   const getSeasonCount = (item: any) => {
     return item.number_of_seasons ?? item.season_count ?? item.seasons?.length ?? null;
   };
@@ -107,6 +104,19 @@ export function AddMediaModal({
       return `https://image.tmdb.org/t/p/w200${item.poster_path}`;
     }
     return null;
+  };
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${month}-${day}-${year}`;
+    } catch {
+      return "N/A";
+    }
   };
 
   const listIsSelectable = lists && lists.length > 0;
@@ -172,11 +182,14 @@ export function AddMediaModal({
                         >
                           <CardContent className="p-3 flex flex-col gap-2">
                             {getMediaPoster(item) ? (
-                              <img
-                                src={getMediaPoster(item)!}
-                                alt={getMediaTitle(item)}
-                                className="w-full h-48 object-cover rounded"
-                              />
+                              <div className="relative w-full h-48 rounded">
+                                <Image
+                                  src={getMediaPoster(item)!}
+                                  alt={getMediaTitle(item)}
+                                  fill
+                                  className="object-cover rounded"
+                                />
+                              </div>
                             ) : (
                               <div className="w-full h-48 bg-muted rounded flex items-center justify-center text-muted-foreground text-xs">
                                 No Image
@@ -186,17 +199,12 @@ export function AddMediaModal({
                               <div className="text-sm font-semibold leading-tight">
                                 {getMediaTitle(item)}
                               </div>
-                              <div className="text-xs text-muted-foreground capitalize">
-                                {item.media_type} • {item.release_date || item.first_air_date || "N/A"}
+                              <div className="text-xs text-muted-foreground">
+                                {formatDate(item.release_date || item.first_air_date)}
                               </div>
-                            </div>
-                            <div className="text-xs text-muted-foreground space-y-1">
-                              <div><strong>Platform:</strong> {getPlatform(item)}</div>
-                              {item.media_type === "tv" && (
-                                <div>
-                                  <strong>Seasons:</strong> {seasonCount ?? "N/A"}
-                                </div>
-                              )}
+                              <div className="text-xs text-muted-foreground capitalize">
+                                {item.media_type}
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
