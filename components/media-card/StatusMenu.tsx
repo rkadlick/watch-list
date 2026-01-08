@@ -42,7 +42,7 @@ export function StatusMenu<T extends string>({ value, options, onChange, showArr
 		onMouseDown={(e) => e.stopPropagation()}
 	  >
 		<button
-		  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors flex items-center gap-1 ${active?.accent} cursor-pointer`}
+		  className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors flex items-center gap-1 ${active?.accent} cursor-pointer`}
 		  onClick={(e) => {
 			e.stopPropagation();
 			setOpen((prev) => !prev);

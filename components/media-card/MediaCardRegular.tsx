@@ -124,7 +124,7 @@ export function MediaCardRegular(props: MediaCardRegularProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={`${size === "large" ? "h-8 w-8" : "h-7 w-7"} text-muted-foreground hover:text-red-600 flex-shrink-0`}
+                  className={`${size === "large" ? "h-8 w-8" : "h-7 w-7"} text-muted-foreground hover:text-red-600 flex-shrink-0 cursor-pointer`}
                 >
                   <Trash2 className={size === "large" ? "h-5 w-5" : "h-4 w-4"} />
                 </Button>

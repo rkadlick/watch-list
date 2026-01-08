@@ -20,6 +20,7 @@ import { RatingCircle } from "./RatingCircle";
 import { StatusMenu } from "./StatusMenu";
 import { SeasonAccordion } from "./SeasonAccordion";
 import { MediaCardProps, StatusValue, statusColors, statusLabels } from "./types";
+import { useState } from "react";
 
 interface MediaCardSmallProps extends Omit<MediaCardProps, "size"> {
   handleStatusChange: (status: StatusValue) => Promise<void>;
@@ -48,6 +49,8 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
   } = props;
 
   const { media, status, rating, priority, tags, startedAt, finishedAt, notes } = listItem;
+
+  const [showAllProviders, setShowAllProviders] = useState(false);
   if (!media) return null;
 
   const config = {
@@ -112,7 +115,7 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-red-600 flex-shrink-0"
+                  className="h-6 w-6 text-muted-foreground hover:text-red-600 flex-shrink-0 cursor-pointer"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -185,32 +188,42 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
           )}
 
           {/* Watch providers */}
-          {media.watchProviders && (
-            <div className="flex flex-col">
-              {media.watchProviders
-                .sort((a, b) => a.displayPriority - b.displayPriority)
-                .slice(0, 3)
-                .map((provider, i) => (
-                  <div
-                    key={provider.providerId}
-                    className="flex items-center gap-2 pb-1 border-b border-muted last:border-b-0"
-                  >
-                    {i === 0 && (
-                      <div className="rounded-full bg-muted p-1 flex items-center justify-center w-5 h-5">
-                        <PlayCircle className={`${config.iconSize} text-muted-foreground`} />
-                      </div>
-                    )}
-                    {i > 0 && <div className="w-6" />}
-                    <span className={`${config.textSize} text-muted-foreground`}>{provider.providerName}</span>
-                  </div>
-                ))}
-              {media.watchProviders.length > 3 && (
-                <div className={`${config.textSize} text-muted-foreground pt-1`}>
-                  +{media.watchProviders.length - 3} more
-                </div>
-              )}
-            </div>
-          )}
+          {media.watchProviders && media.watchProviders.length > 0 && (
+    <div className="flex flex-col">
+      {media.watchProviders
+        .sort((a, b) => a.displayPriority - b.displayPriority)
+        .slice(0, showAllProviders ? undefined : 3)
+        .map((provider, i) => (
+          <div
+            key={provider.providerId}
+            className="flex items-center gap-2 pb-1 border-b border-muted last:border-b-0"
+          >
+            {i === 0 && (
+              <div className="rounded-full bg-muted p-1 flex items-center justify-center w-5 h-5">
+                <PlayCircle className={`${config.iconSize} text-muted-foreground`} />
+              </div>
+            )}
+            {i > 0 && <div className="w-6" />}
+            <span className={`${config.textSize} text-muted-foreground`}>
+              {provider.providerName}
+            </span>
+          </div>
+        ))}
+      {media.watchProviders.length > 3 && (
+        <button
+          onClick={() => setShowAllProviders(!showAllProviders)}
+          className={`flex items-center gap-2 pt-1 ${config.textSize} text-muted-foreground hover:text-foreground transition-colors cursor-pointer`}
+        >
+          <div className="w-6" />
+          <span>
+            {showAllProviders
+              ? "Show less"
+              : `+${media.watchProviders.length - 3} more`}
+          </span>
+        </button>
+      )}
+    </div>
+  )}
 
           {/* Tags */}
           {tags && tags.length > 0 && (
