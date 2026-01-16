@@ -1,157 +1,246 @@
 "use client";
 
+import { useState } from "react";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/Accordion";
+import { Star } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/Popover";
 import { Button } from "@/components/ui/Button";
-import { ChevronDown, ChevronUp, Star } from "lucide-react";
 import { StatusMenu } from "./StatusMenu";
-import { statusColors } from "./types";
+import { SeasonEditForm } from "./SeasonEditForm";
+import { statusColors, SeasonProgress, StatusValue } from "./types";
+import { cn } from "@/lib/utils";
 
 interface SeasonAccordionProps {
   showSeasons: boolean;
   setShowSeasons: (val: boolean) => void;
   openSeason: string | undefined;
   setOpenSeason: (val: string | undefined) => void;
-  media: any;
-  listItem: any;
-  config: any;
-  handleSeasonStatusChange: (seasonNumber: number, status: any) => void;
-  getSeasonStatus: (seasonNumber: number) => string;
+  media: {
+    seasonData?: Array<{
+      seasonNumber: number;
+      episodeCount: number;
+      airDate?: string;
+    }>;
+  };
+  listItem: {
+    seasonProgress?: SeasonProgress[];
+  };
+  config: {
+    textSize: string;
+    iconSize: string;
+  };
+  handleSeasonStatusChange: (seasonNumber: number, status: StatusValue) => void;
+  getSeasonStatus: (seasonNumber: number) => StatusValue;
+  getSeasonProgress: (seasonNumber: number) => SeasonProgress | undefined;
   formatDate: (timestamp?: number) => string | null;
+  // New handlers
+  handleSeasonRatingChange: (seasonNumber: number, rating: number | undefined) => Promise<void>;
+  handleSeasonNotesChange: (seasonNumber: number, notes: string) => Promise<void>;
+  handleSeasonDatesChange: (seasonNumber: number, startedAt?: number, finishedAt?: number) => Promise<void>;
+}
+
+// Star Rating Picker Component
+function StarRatingPicker({
+  value,
+  onChange,
+}: {
+  value?: number;
+  onChange: (rating: number | undefined) => void;
+}) {
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
+  const displayRating = hoverRating ?? value;
+
+  const handleClick = (rating: number) => {
+    if (rating === value) {
+      onChange(undefined);
+    } else {
+      onChange(rating);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
+          <button
+            key={rating}
+            className="p-0.5 hover:scale-110 transition-transform cursor-pointer"
+            onMouseEnter={() => setHoverRating(rating)}
+            onMouseLeave={() => setHoverRating(null)}
+            onClick={() => handleClick(rating)}
+          >
+            <Star
+              className={cn(
+                "h-5 w-5",
+                displayRating && rating <= displayRating
+                  ? "fill-amber-400 text-amber-400"
+                  : "text-muted-foreground/40"
+              )}
+            />
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          {hoverRating
+            ? `${hoverRating}/10`
+            : value
+              ? `${value}/10`
+              : "Not rated"}
+        </span>
+        {value && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs px-2"
+            onClick={() => onChange(undefined)}
+          >
+            Clear
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function SeasonAccordion({
-  showSeasons,
-  setShowSeasons,
   openSeason,
   setOpenSeason,
   media,
-  listItem,
   config,
   handleSeasonStatusChange,
   getSeasonStatus,
-  formatDate,
+  getSeasonProgress,
+  handleSeasonRatingChange,
+  handleSeasonNotesChange,
+  handleSeasonDatesChange,
 }: SeasonAccordionProps) {
-  if (!media.seasonData?.length) return null;
+  if (!media.seasonData?.length) {
+    return (
+      <div className={`${config.textSize} text-muted-foreground py-2`}>
+        No season data available
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="pt-1">
-        <Button
-          className="cursor-pointer"
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowSeasons(!showSeasons)}
-        >
-          <span>{showSeasons ? "Hide" : "Show"} Seasons</span>
-          {showSeasons ? (
-            <ChevronUp className={`${config.iconSize} ml-1`} />
-          ) : (
-            <ChevronDown className={`${config.iconSize} ml-1`} />
-          )}
-        </Button>
-      </div>
+    <Accordion
+      type="single"
+      collapsible
+      className="w-full"
+      value={openSeason}
+      onValueChange={setOpenSeason}
+    >
+      {media.seasonData.map((season) => {
+        const seasonStatus = getSeasonStatus(season.seasonNumber);
+        const seasonProgress = getSeasonProgress(season.seasonNumber);
+        const seasonKey = `season-${season.seasonNumber}`;
 
-      {showSeasons && (
-        <Accordion
-          type="single"
-          collapsible
-          className="w-full border-t mt-2"
-          value={openSeason}
-          onValueChange={setOpenSeason}
-        >
-          {media.seasonData.map((season: any) => {
-            const seasonStatus = getSeasonStatus(season.seasonNumber);
-            const seasonProgress = listItem.seasonProgress?.find(
-              (p: any) => p.seasonNumber === season.seasonNumber
-            );
-            console.log(seasonProgress);
-            const seasonKey = `season-${season.seasonNumber}`;
-            const isOpen = openSeason === seasonKey;
+        return (
+          <AccordionItem key={seasonKey} value={seasonKey} className="border-b border-border/50">
+            <div className="flex items-center justify-between pr-2">
+              {/* Left Side: Accordion Trigger */}
+              <AccordionTrigger className="hover:no-underline flex-1 py-2">
+                <span className="font-medium text-sm">Season {season.seasonNumber}</span>
+              </AccordionTrigger>
 
-            return (
-              <AccordionItem key={seasonKey} value={seasonKey}>
-                <div className="flex items-center justify-between py-1">
-                  <AccordionTrigger className="hover:no-underline flex-1 text-left">
-                    Season {season.seasonNumber}
-                  </AccordionTrigger>
-                  <div className="flex items-center gap-2">
-                    <StatusMenu
-                      value={seasonStatus}
-                      onChange={(v) =>
-                        handleSeasonStatusChange(season.seasonNumber, v)
+              {/* Right Side: Status + Rating Popover (separate from trigger) */}
+              <div
+                className="flex items-center gap-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <StatusMenu
+                  value={seasonStatus}
+                  onChange={(v) => handleSeasonStatusChange(season.seasonNumber, v)}
+                  options={[
+                    {
+                      value: "to_watch",
+                      label: "To Watch",
+                      accent: statusColors.to_watch,
+                    },
+                    {
+                      value: "watching",
+                      label: "Watching",
+                      accent: statusColors.watching,
+                    },
+                    {
+                      value: "watched",
+                      label: "Watched",
+                      accent: statusColors.watched,
+                    },
+                    {
+                      value: "dropped",
+                      label: "Dropped",
+                      accent: statusColors.dropped,
+                    },
+                  ]}
+                />
+
+                {/* Rating Popover */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      className={cn(
+                        "flex items-center gap-0.5 px-1 py-0.5 rounded transition-colors cursor-pointer",
+                        "hover:bg-accent/50",
+                        seasonProgress?.rating
+                          ? "text-amber-500"
+                          : "text-muted-foreground/50 hover:text-amber-500"
+                      )}
+                    >
+                      <Star
+                        className={cn(
+                          "h-3.5 w-3.5",
+                          seasonProgress?.rating
+                            ? "fill-amber-400 text-amber-400"
+                            : "fill-none"
+                        )}
+                      />
+                      {seasonProgress?.rating && (
+                        <span className="text-xs tabular-nums">{seasonProgress.rating}</span>
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-3" align="end">
+                    <StarRatingPicker
+                      value={seasonProgress?.rating}
+                      onChange={(rating) =>
+                        handleSeasonRatingChange(season.seasonNumber, rating)
                       }
-                      options={[
-                        {
-                          value: "to_watch",
-                          label: "To Watch",
-                          accent: statusColors.to_watch,
-                        },
-                        {
-                          value: "watching",
-                          label: "Watching",
-                          accent: statusColors.watching,
-                        },
-                        {
-                          value: "watched",
-                          label: "Watched",
-                          accent: statusColors.watched,
-                        },
-                        {
-                          value: "dropped",
-                          label: "Dropped",
-                          accent: statusColors.dropped,
-                        },
-                      ]}
                     />
-                    {seasonProgress?.rating && (
-                      <div className="flex items-center gap-1 text-sm">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        {seasonProgress.rating}/10
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <AccordionContent
-                  className={`${config.textSize} text-muted-foreground`}
-                >
-                  <div>
-                    <strong>Episodes:</strong> {season.episodeCount ?? "N/A"}
-                  </div>
-                  {season.airDate && (
-                    <div>
-                      <strong>Air Date:</strong>{" "}
-                      {new Date(season.airDate).toLocaleDateString()}
-                    </div>
-                  )}
-                  {/* Progress-based info */}
-                  {seasonProgress?.startedAt && (
-                    <div>
-                      <strong>Started:</strong>{" "}
-                      {formatDate(seasonProgress.startedAt)}
-                    </div>
-                  )}
-                  {seasonProgress?.finishedAt && (
-                    <div>
-                      <strong>Finished:</strong>{" "}
-                      {formatDate(seasonProgress.finishedAt)}
-                    </div>
-                  )}
-                  {seasonProgress?.notes && (
-                    <div>
-                      <strong>Notes:</strong> {seasonProgress.notes}
-                    </div>
-                  )}
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
-      )}
-    </>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            <AccordionContent className="pb-3">
+              <SeasonEditForm
+                seasonNumber={season.seasonNumber}
+                episodeCount={season.episodeCount}
+                airDate={season.airDate}
+                notes={seasonProgress?.notes}
+                startedAt={seasonProgress?.startedAt}
+                finishedAt={seasonProgress?.finishedAt}
+                onNotesChange={(notes) =>
+                  handleSeasonNotesChange(season.seasonNumber, notes)
+                }
+                onDatesChange={(startedAt, finishedAt) =>
+                  handleSeasonDatesChange(season.seasonNumber, startedAt, finishedAt)
+                }
+              />
+            </AccordionContent>
+          </AccordionItem>
+        );
+      })}
+    </Accordion>
   );
 }

@@ -6,7 +6,13 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Masonry from "react-masonry-css";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import {
   Dialog,
@@ -15,12 +21,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/Dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
 import { AddMediaModal } from "@/components/AddMediaModal";
 import { MediaCard } from "@/components/media-card/MediaCard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Id } from "@/convex/_generated/dataModel";
-import { ArrowUpDown, Grid, List as ListIcon, Menu, X } from "lucide-react";
+import {
+  ArrowUpDown,
+  Grid,
+  Menu,
+  X,
+  Edit2,
+  Check,
+  X as XIcon,
+} from "lucide-react";
+import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
 
 type StatusView = "all" | "to_watch" | "watching" | "watched" | "dropped";
 type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
@@ -37,20 +58,33 @@ const VIEW_CHIPS: { value: StatusView; label: string }[] = [
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
-  const lists = useQuery(api.lists.getMyLists);
+  const lists = useQuery(api.lists.getMyLists, isLoaded ? undefined : "skip");
   const syncUser = useMutation(api.users.syncUser);
-  const createList = useMutation(api.lists.createList);
-  const [selectedListId, setSelectedListId] = useState<Id<"lists"> | null>(null);
+  const { mutate: createList, isLoading: isCreatingList } =
+    useMutationWithError(api.lists.createList, {
+      successMessage: "List created",
+    });
+  const { mutate: updateList, isLoading: isUpdatingList } =
+    useMutationWithError(api.lists.updateList, {
+      successMessage: "List updated",
+    });
+  const [selectedListId, setSelectedListId] = useState<Id<"lists"> | null>(
+    null
+  );
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isCreateListOpen, setIsCreateListOpen] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [newListDescription, setNewListDescription] = useState("");
   const [activeView, setActiveView] = useState<StatusView>("all");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [cardSize, setCardSize] = useState<CardSize>("small");
-  const [sortByPerList, setSortByPerList] = useState<Record<string, SortOption>>({});
+  const [sortByPerList, setSortByPerList] = useState<
+    Record<string, SortOption>
+  >({});
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [editingListId, setEditingListId] = useState<Id<"lists"> | null>(null);
+  const [editListName, setEditListName] = useState("");
+  const [editListDescription, setEditListDescription] = useState("");
 
   // Sync user when they log in
   useEffect(() => {
@@ -60,7 +94,12 @@ export default function DashboardPage() {
         email: user.emailAddresses[0]?.emailAddress || "",
         name: user.fullName || undefined,
         avatarUrl: user.imageUrl || undefined,
-      }).catch(console.error);
+      }).catch((error) => {
+        // Silent fail for user sync - not critical for UX
+        if (process.env.NODE_ENV === "development") {
+          console.error("User sync failed:", error);
+        }
+      });
     }
   }, [isLoaded, user, syncUser]);
 
@@ -79,7 +118,9 @@ export default function DashboardPage() {
   );
 
   const selectedList = lists?.find((list) => list._id === selectedListId);
-  const currentSort = selectedListId ? sortByPerList[selectedListId.toString()] ?? "added" : "added";
+  const currentSort = selectedListId
+    ? (sortByPerList[selectedListId.toString()] ?? "added")
+    : "added";
 
   const statusCounts = useMemo(() => {
     const counts: Record<StatusView, number> = {
@@ -90,7 +131,8 @@ export default function DashboardPage() {
       dropped: 0,
     };
     listItems?.forEach((item) => {
-      counts[item.status as StatusView] = (counts[item.status as StatusView] || 0) + 1;
+      counts[item.status as StatusView] =
+        (counts[item.status as StatusView] || 0) + 1;
     });
     return counts;
   }, [listItems]);
@@ -109,15 +151,24 @@ export default function DashboardPage() {
     const sorters: Record<SortOption, (a: any, b: any) => number> = {
       added: (a, b) => (b._creationTime || 0) - (a._creationTime || 0),
       release: (a, b) => {
-        const aDate = a.media?.releaseDate ? new Date(a.media.releaseDate).getTime() : 0;
-        const bDate = b.media?.releaseDate ? new Date(b.media.releaseDate).getTime() : 0;
+        const aDate = a.media?.releaseDate
+          ? new Date(a.media.releaseDate).getTime()
+          : 0;
+        const bDate = b.media?.releaseDate
+          ? new Date(b.media.releaseDate).getTime()
+          : 0;
         return bDate - aDate;
       },
       rating: (a, b) => (b.rating || 0) - (a.rating || 0),
-      alpha: (a, b) => (a.media?.title || "").localeCompare(b.media?.title || ""),
+      alpha: (a, b) =>
+        (a.media?.title || "").localeCompare(b.media?.title || ""),
       priority: (a, b) => {
-        const aPriority = a.priority ? priorityOrder[a.priority as keyof typeof priorityOrder] : 0;
-        const bPriority = b.priority ? priorityOrder[b.priority as keyof typeof priorityOrder] : 0;
+        const aPriority = a.priority
+          ? priorityOrder[a.priority as keyof typeof priorityOrder]
+          : 0;
+        const bPriority = b.priority
+          ? priorityOrder[b.priority as keyof typeof priorityOrder]
+          : 0;
         return bPriority - aPriority;
       },
     };
@@ -127,25 +178,24 @@ export default function DashboardPage() {
 
   const handleCreateList = async () => {
     if (!newListName.trim()) return;
-    try {
-      const listId = await createList({
-        name: newListName,
-        description: newListDescription || undefined,
-      });
-      setNewListName("");
-      setNewListDescription("");
-      setIsCreateListOpen(false);
-      setSelectedListId(listId);
-    } catch (error) {
-      console.error("Error creating list:", error);
-    }
+
+    const listId = await createList({
+      name: newListName,
+      description: newListDescription || undefined,
+    });
+    setNewListName("");
+    setNewListDescription("");
+    setIsCreateListOpen(false);
+    setSelectedListId(listId);
   };
 
   const renderItems = () => {
     if (filteredItems === undefined) {
-      return <div className="flex h-64 items-center justify-center">Loading...</div>;
+      return (
+        <div className="flex h-64 items-center justify-center">Loading...</div>
+      );
     }
-  
+
     if (filteredItems.length === 0) {
       return (
         <Card className="border-dashed">
@@ -158,7 +208,7 @@ export default function DashboardPage() {
         </Card>
       );
     }
-  
+
     // breakpoints control # of columns
     const breakpoints = {
       default: cardSize === "large" ? 2 : 4,
@@ -167,18 +217,7 @@ export default function DashboardPage() {
       1024: cardSize === "large" ? 2 : 2,
       768: 1,
     };
-  
-    // List view remains unchanged
-    if (viewMode === "list") {
-      return (
-        <div className="space-y-3">
-          {filteredItems.map((item) => (
-            <MediaCard key={item._id} listItem={item} size={cardSize} />
-          ))}
-        </div>
-      );
-    }
-  
+
     // Masonry layout for grid mode
     return (
       <Masonry
@@ -194,11 +233,19 @@ export default function DashboardPage() {
   };
 
   if (!isLoaded) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading...
+      </div>
+    );
   }
 
   if (!user) {
-    return <div className="flex items-center justify-center min-h-screen">Please sign in</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Please sign in
+      </div>
+    );
   }
 
   return (
@@ -211,7 +258,9 @@ export default function DashboardPage() {
       >
         <div className="flex items-center justify-between border-b px-4 py-4">
           <div>
-            <div className="text-sm uppercase tracking-wide text-muted-foreground">Lists</div>
+            <div className="text-sm uppercase tracking-wide text-muted-foreground">
+              Lists
+            </div>
             <div className="text-lg font-semibold">Watch List</div>
           </div>
           <Button
@@ -225,8 +274,13 @@ export default function DashboardPage() {
         </div>
 
         <div className="px-4 py-3 space-y-2 border-b">
-          <Button variant="outline" className="w-full" onClick={() => setIsCreateListOpen(true)}>
-            Create List
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setIsCreateListOpen(true)}
+            disabled={isCreatingList}
+          >
+            {isCreatingList ? "Creating..." : "Create List"}
           </Button>
           <Button className="w-full" onClick={() => setIsAddModalOpen(true)}>
             Add Media
@@ -272,11 +326,18 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex items-center justify-between gap-3 border-b bg-card/80 px-4 py-3 backdrop-blur">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsSidebarOpen(true)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setIsSidebarOpen(true)}
+            >
               <Menu className="h-5 w-5" />
             </Button>
             <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Dashboard</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                Dashboard
+              </div>
               <div className="text-lg font-semibold">
                 {selectedList?.name ?? "Select a list"}
               </div>
@@ -297,31 +358,87 @@ export default function DashboardPage() {
             <div className="border-b bg-card/80 px-4 py-4 md:px-6 backdrop-blur">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-2xl font-semibold">{selectedList.name}</h2>
-                    {selectedList.description && (
-                      <p className="text-muted-foreground mt-1">{selectedList.description}</p>
+                  <div className="flex-1">
+                    {editingListId === selectedList._id ? (
+                      <div className="space-y-2">
+                        <Input
+                          value={editListName}
+                          onChange={(e) => setEditListName(e.target.value)}
+                          className="text-2xl font-semibold h-auto py-1 px-0 border-0 border-b-2 border-primary focus-visible:ring-0 rounded-none"
+                          placeholder="List name"
+                          autoFocus
+                        />
+                        <Input
+                          value={editListDescription}
+                          onChange={(e) =>
+                            setEditListDescription(e.target.value)
+                          }
+                          className="text-muted-foreground h-auto py-1 px-0 border-0 border-b border-primary/50 focus-visible:ring-0 rounded-none"
+                          placeholder="Description (optional)"
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <Button
+                            size="sm"
+                            disabled={isUpdatingList}
+                            onClick={async () => {
+                              await updateList({
+                                listId: selectedList._id,
+                                name: editListName || undefined,
+                                description: editListDescription || undefined,
+                              });
+                              setEditingListId(null);
+                            }}
+                          >
+                            <Check className="h-3 w-3 mr-1" />
+                            {isUpdatingList ? "Updating..." : "Save"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingListId(null);
+                              setEditListName("");
+                              setEditListDescription("");
+                            }}
+                          >
+                            <XIcon className="h-3 w-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <h2 className="text-2xl font-semibold">
+                          {selectedList.name}
+                        </h2>
+                        {selectedList.description && (
+                          <p className="text-muted-foreground mt-1">
+                            {selectedList.description}
+                          </p>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="mt-2"
+                          onClick={() => {
+                            setEditingListId(selectedList._id);
+                            setEditListName(selectedList.name);
+                            setEditListDescription(
+                              selectedList.description || ""
+                            );
+                          }}
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
+                      </>
                     )}
                   </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={viewMode === "grid" ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => setViewMode("grid")}
-                    aria-label="Grid view"
-                  >
-                    <Grid className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === "list" ? "default" : "outline"}
-                    size="icon"
-                    onClick={() => setViewMode("list")}
-                    aria-label="List view"
-                  >
-                    <ListIcon className="h-4 w-4" />
-                  </Button>
-                  {viewMode === "grid" && (
-                    <Select value={cardSize} onValueChange={(value) => setCardSize(value as CardSize)}>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={cardSize}
+                      onValueChange={(value) => setCardSize(value as CardSize)}
+                    >
                       <SelectTrigger className="w-[120px]">
                         <SelectValue />
                       </SelectTrigger>
@@ -331,74 +448,78 @@ export default function DashboardPage() {
                         <SelectItem value="large">Large</SelectItem>
                       </SelectContent>
                     </Select>
-                  )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap gap-2">
-                {VIEW_CHIPS.map((chip) => (
-                  <Button
-                    key={chip.value}
-                    variant="outline"
-                    className={`rounded-full px-3 py-1 border-2 transition-colors ${
-                      activeView === chip.value
-                        ? "border-primary bg-primary text-white hover:bg-primary/85 hover:border-primary hover:text-white dark:border-primary/80 dark:bg-primary/80 dark:hover:bg-primary/70 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
-                        : "border-border bg-background text-foreground hover:bg-muted/70 hover:border-border"
-                    }`}
-                    onClick={() => setActiveView(chip.value)}
-                  >
-                    <span>{chip.label}</span>
-                    <span
-                      className={`ml-2 rounded-full border px-2 text-xs ${
+                <div className="flex flex-wrap gap-2">
+                  {VIEW_CHIPS.map((chip) => (
+                    <Button
+                      key={chip.value}
+                      variant="outline"
+                      className={`rounded-full px-3 py-1 border-2 transition-colors ${
                         activeView === chip.value
-                          ? "border-white/70 bg-white/25 text-white dark:border-white/30 dark:bg-white/15"
-                          : "border-border bg-secondary text-foreground"
+                          ? "border-primary bg-primary text-white hover:bg-primary/85 hover:border-primary hover:text-white dark:border-primary/80 dark:bg-primary/80 dark:hover:bg-primary/70 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
+                          : "border-border bg-background text-foreground hover:bg-muted/70 hover:border-border"
                       }`}
+                      onClick={() => setActiveView(chip.value)}
                     >
-                      {statusCounts[chip.value]}
-                    </span>
-                  </Button>
-                ))}
-              </div>
+                      <span>{chip.label}</span>
+                      <span
+                        className={`ml-2 rounded-full border px-2 text-xs ${
+                          activeView === chip.value
+                            ? "border-white/70 bg-white/25 text-white dark:border-white/30 dark:bg-white/15"
+                            : "border-border bg-secondary text-foreground"
+                        }`}
+                      >
+                        {statusCounts[chip.value]}
+                      </span>
+                    </Button>
+                  ))}
+                </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                  <Select
-                    value={currentSort}
-                    onValueChange={(value) =>
-                      setSortByPerList((prev) => ({
-                        ...prev,
-                        [selectedListId!.toString()]: value as SortOption,
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="added">Date added</SelectItem>
-                      <SelectItem value="release">Release year</SelectItem>
-                      <SelectItem value="rating">Rating</SelectItem>
-                      <SelectItem value="alpha">A–Z</SelectItem>
-                      <SelectItem value="priority">Priority</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as TypeFilter)}>
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All types</SelectItem>
-                      <SelectItem value="movie">Movies</SelectItem>
-                      <SelectItem value="tv">TV shows</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                    <Select
+                      value={currentSort}
+                      onValueChange={(value) =>
+                        setSortByPerList((prev) => ({
+                          ...prev,
+                          [selectedListId!.toString()]: value as SortOption,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="added">Date added</SelectItem>
+                        <SelectItem value="release">Release year</SelectItem>
+                        <SelectItem value="rating">Rating</SelectItem>
+                        <SelectItem value="alpha">A–Z</SelectItem>
+                        <SelectItem value="priority">Priority</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={typeFilter}
+                      onValueChange={(value) =>
+                        setTypeFilter(value as TypeFilter)
+                      }
+                    >
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All types</SelectItem>
+                        <SelectItem value="movie">Movies</SelectItem>
+                        <SelectItem value="tv">TV shows</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
-            </div>
             </div>
 
             {/* Scrollable card container */}
@@ -412,12 +533,19 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle>Welcome to your watch lists</CardTitle>
                 <CardDescription>
-                  Create your first list to start tracking movies and shows. You can add items from TMDB search once a list exists.
+                  Create your first list to start tracking movies and shows. You
+                  can add items from TMDB search once a list exists.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex gap-3">
-                <Button onClick={() => setIsCreateListOpen(true)}>Create List</Button>
-                <Button variant="outline" onClick={() => setIsAddModalOpen(true)} disabled>
+                <Button onClick={() => setIsCreateListOpen(true)}>
+                  Create List
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddModalOpen(true)}
+                  disabled
+                >
                   Add Media
                 </Button>
               </CardContent>
@@ -457,7 +585,9 @@ export default function DashboardPage() {
               />
             </div>
             <div>
-              <label className="text-sm font-medium">Description (Optional)</label>
+              <label className="text-sm font-medium">
+                Description (Optional)
+              </label>
               <Input
                 placeholder="A list of shows I want to binge"
                 value={newListDescription}
@@ -470,7 +600,10 @@ export default function DashboardPage() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsCreateListOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateListOpen(false)}
+              >
                 Cancel
               </Button>
               <Button onClick={handleCreateList} disabled={!newListName.trim()}>
@@ -483,4 +616,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

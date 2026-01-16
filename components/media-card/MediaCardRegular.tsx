@@ -15,25 +15,21 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/AlertDialog";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
-import { Trash2, Calendar, Star, Tag, PlayCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { Trash2, PlayCircle, Tv, FileText, ChevronDown, Calendar } from "lucide-react";
 import { RatingCircle } from "./RatingCircle";
 import { StatusMenu } from "./StatusMenu";
 import { SeasonAccordion } from "./SeasonAccordion";
-import { MediaCardProps, StatusValue, statusColors, statusLabels } from "./types";
+import { UserRatingPopover } from "./UserRatingPopover";
+import { PrioritySelector } from "./PrioritySelector";
+import { TrackingForm } from "./TrackingForm";
+import { MediaCardProps, MediaCardInnerProps, StatusValue, statusColors, statusLabels } from "./types";
 
-interface MediaCardRegularProps extends MediaCardProps {
-  handleStatusChange: (status: StatusValue) => Promise<void>;
-  handleDelete: () => Promise<void>;
-  showSeasons: boolean;
-  setShowSeasons: (b: boolean) => void;
-  openSeason: string | undefined;
-  setOpenSeason: (v: string | undefined) => void;
-  handleSeasonStatusChange: (seasonNumber: number, status: StatusValue) => Promise<void>;
-  getSeasonStatus: (seasonNumber: number) => string;
-  formatDate: (timestamp?: number) => string | null;
+interface MediaCardRegularComponentProps extends MediaCardInnerProps {
+  size?: MediaCardProps["size"];
 }
 
-export function MediaCardRegular(props: MediaCardRegularProps) {
+export function MediaCardRegular(props: MediaCardRegularComponentProps) {
   const {
     listItem,
     size = "normal",
@@ -45,10 +41,22 @@ export function MediaCardRegular(props: MediaCardRegularProps) {
     setOpenSeason,
     handleSeasonStatusChange,
     getSeasonStatus,
+    getSeasonProgress,
     formatDate,
+    // New handlers
+    handleRatingChange,
+    handleSeasonRatingChange,
+    handlePriorityChange,
+    handleNotesChange,
+    handleSeasonNotesChange,
+    handleTagsChange,
+    handleDatesChange,
+    handleSeasonDatesChange,
+    activeTab,
+    setActiveTab,
   } = props;
 
-  const { media, status, rating, priority, tags, startedAt, finishedAt, notes } = listItem;
+  const { media, status, rating, priority, tags, startedAt, finishedAt, notes, _creationTime } = listItem;
   if (!media) return null;
 
   const config =
@@ -68,15 +76,34 @@ export function MediaCardRegular(props: MediaCardRegularProps) {
           badgeSize: "text-sm",
         };
 
-  const priorityColors = {
-    high: "bg-red-100 text-red-800 border-red-200",
-    medium: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    low: "bg-blue-100 text-blue-800 border-blue-200",
+  // Format "Added" date - show exact date
+  const formatAddedDate = (timestamp: number) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  // Build meta info with dot separators
+  const buildMetaInfo = () => {
+    const parts: string[] = [];
+    if (media.releaseDate) {
+      parts.push(new Date(media.releaseDate).getFullYear().toString());
+    }
+    if (media.type === "tv" && media.totalSeasons) {
+      parts.push(`${media.totalSeasons} Season${media.totalSeasons !== 1 ? "s" : ""}`);
+      if (media.totalEpisodes) {
+        parts.push(`${media.totalEpisodes} Episodes`);
+      }
+    }
+    return parts.join(" • ");
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <div className={`flex ${config.gap} p-4`}>
+    <Card className="hover:shadow-md transition-shadow flex flex-col">
+      <div className={`flex ${config.gap} p-4 flex-1`}>
         {media.posterUrl && (
           <div
             className="relative flex-shrink-0 flex items-center justify-center"
@@ -96,26 +123,15 @@ export function MediaCardRegular(props: MediaCardRegularProps) {
         )}
 
         <div className="flex-1 min-w-0 flex flex-col">
+          {/* HEADER: Title + Delete */}
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex-1 min-w-0">
               <CardTitle className={`${config.titleSize} font-semibold leading-tight line-clamp-2`}>
                 {media.title}
               </CardTitle>
-              <div
-                className={`flex items-center gap-2 mt-1 flex-wrap ${config.textSize} text-muted-foreground`}
-              >
-                {media.releaseDate && (
-                  <div className="flex items-center gap-1">
-                    <Calendar className={config.iconSize} />
-                    {new Date(media.releaseDate).getFullYear()}
-                  </div>
-                )}
-                {media.type === "tv" && media.totalSeasons && (
-                  <div>
-                    {media.totalSeasons} Season{media.totalSeasons !== 1 ? "s" : ""}
-                    {media.totalEpisodes && ` • ${media.totalEpisodes} Episodes`}
-                  </div>
-                )}
+              {/* Meta info with dot separators */}
+              <div className={`text-sm text-muted-foreground/70 mt-1`}>
+                {buildMetaInfo()}
               </div>
             </div>
 
@@ -133,7 +149,7 @@ export function MediaCardRegular(props: MediaCardRegularProps) {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Remove from list?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to remove “{media.title}”? This cannot be undone.
+                    Are you sure you want to remove &ldquo;{media.title}&rdquo;? This cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -147,6 +163,7 @@ export function MediaCardRegular(props: MediaCardRegularProps) {
           </div>
 
           <div className={`flex flex-col ${config.gap}`}>
+            {/* HEADER INJECTION: Status + User Rating + TMDB + Priority */}
             <div className="flex items-center gap-2 flex-wrap">
               {media.type === "movie" ? (
                 <StatusMenu
@@ -164,121 +181,168 @@ export function MediaCardRegular(props: MediaCardRegularProps) {
                 </Badge>
               )}
 
-              {rating && (
-                <div className="flex items-center gap-1">
-                  <Star className={`${config.iconSize} fill-yellow-400 text-yellow-400`} />
-                  <span className={config.textSize}>{rating}/10</span>
-                </div>
-              )}
+              {/* User Rating (clickable star) */}
+              <UserRatingPopover
+                rating={rating}
+                onRatingChange={handleRatingChange}
+                size={size === "large" ? "md" : "sm"}
+              />
 
-              {media.voteAverage && <RatingCircle score={media.voteAverage} size={size === "large" ? 48 : 40} />}
+              {/* TMDB Score */}
+              {media.voteAverage && <RatingCircle score={media.voteAverage} size={size === "large" ? 44 : 36} />}
 
-              {priority && (
-                <Badge
-                  variant="outline"
-                  className={`${config.badgeSize} ${priorityColors[priority]}`}
-                >
-                  {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                </Badge>
-              )}
+              {/* Priority (clickable selector) */}
+              <PrioritySelector
+                priority={priority}
+                onPriorityChange={handlePriorityChange}
+                size={size === "large" ? "md" : "sm"}
+              />
             </div>
 
-            {/* Genres */}
+            {/* Genres - dot separated */}
             {media.genres && media.genres.length > 0 && (
-              <div className={`${config.textSize} text-muted-foreground`}>
-                {media.genres.slice(0, size === "large" ? 6 : 4).map((genre, i) => (
-                  <span key={genre.id}>
-                    {genre.name}
-                    {i < Math.min(media.genres?.length ?? 0, size === "large" ? 6 : 4) - 1 && ", "}
-                  </span>
-                ))}
+              <div className={`${config.textSize} text-muted-foreground/70`}>
+                {media.genres.slice(0, size === "large" ? 6 : 4).map(g => g.name).join(" • ")}
                 {media.genres.length > (size === "large" ? 6 : 4) && (
-                  <span> +{media.genres.length - (size === "large" ? 6 : 4)} more</span>
+                  <span> +{media.genres.length - (size === "large" ? 6 : 4)}</span>
                 )}
               </div>
             )}
 
-            {/* Providers */}
-            {media.watchProviders && (
-              <div className="flex flex-col gap-0">
-                {media.watchProviders
-                  .sort((a, b) => a.displayPriority - b.displayPriority)
-                  .slice(0, size === "large" ? 5 : 4)
-                  .map((provider, i) => (
-                    <div
-                      key={provider.providerId}
-                      className="flex items-center gap-2 pb-1 border-b border-muted last:border-b-0"
-                    >
-                      {i === 0 && (
-                        <div className="rounded-full bg-muted p-1 flex items-center justify-center w-6 h-6">
-                          <PlayCircle className={`${config.iconSize} text-muted-foreground`} />
-                        </div>
-                      )}
-                      {i > 0 && <div className="w-7" />}
-                      <span className={`${config.textSize} text-muted-foreground`}>
-                        {provider.providerName}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            )}
-
-            {/* Tags */}
-            {tags && tags.length > 0 && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Tag className={`${config.iconSize} text-muted-foreground`} />
-                <div className="flex flex-wrap gap-1">
-                  {tags.slice(0, size === "large" ? 5 : 4).map((tag, i) => (
-                    <Badge key={i} variant="outline" className={`${config.badgeSize} px-1.5 py-0`}>
-                      {tag}
-                    </Badge>
-                  ))}
-                  {tags.length > (size === "large" ? 5 : 4) && (
-                    <Badge variant="outline" className={`${config.badgeSize} px-1.5 py-0`}>
-                      +{tags.length - (size === "large" ? 5 : 4)}
-                    </Badge>
+            {/* Providers - cleaner inline layout */}
+            {media.watchProviders && media.watchProviders.length > 0 && (
+              <div className={`${config.textSize} text-muted-foreground/70 flex items-center gap-1.5`}>
+                <PlayCircle className={config.iconSize} />
+                <span>
+                  {media.watchProviders
+                    .sort((a, b) => a.displayPriority - b.displayPriority)
+                    .slice(0, size === "large" ? 4 : 3)
+                    .map((p) => p.providerName)
+                    .join(", ")}
+                  {media.watchProviders.length > (size === "large" ? 4 : 3) && (
+                    <span className="ml-1">+{media.watchProviders.length - (size === "large" ? 4 : 3)}</span>
                   )}
-                </div>
+                </span>
               </div>
             )}
 
-            {(startedAt || finishedAt) && (
-              <div className={`flex items-center gap-2 ${config.textSize} text-muted-foreground`}>
-                {startedAt && <div>Started: {formatDate(startedAt)}</div>}
-                {finishedAt && <div>Finished: {formatDate(finishedAt)}</div>}
+            {/* Date (Watched for movies, Started for shows) */}
+            {(media.type === "movie" && finishedAt) || (media.type === "tv" && startedAt) ? (
+              <div className={`${config.textSize} text-muted-foreground/70 flex items-center gap-1.5`}>
+                <Calendar className={config.iconSize} />
+                <span>
+                  {formatDate(media.type === "movie" ? finishedAt : startedAt)}
+                </span>
+              </div>
+            ) : null}
+
+            {/* Tags - dot separated */}
+            {tags && tags.length > 0 && (
+              <div className={`${config.textSize} text-muted-foreground/70`}>
+                {tags.slice(0, size === "large" ? 5 : 4).join(" • ")}
+                {tags.length > (size === "large" ? 5 : 4) && ` +${tags.length - (size === "large" ? 5 : 4)}`}
               </div>
             )}
 
+            {/* Notes preview */}
             {notes && (
               <div
-                className={`${config.textSize} text-muted-foreground ${
-                  size === "large" ? "line-clamp-4" : "line-clamp-3"
+                className={`${config.textSize} text-muted-foreground/60 italic ${
+                  size === "large" ? "line-clamp-3" : "line-clamp-2"
                 }`}
               >
-                {notes}
+                &ldquo;{notes}&rdquo;
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Seasons (TV-only) */}
+      {/* TABBED BODY (TV shows only) */}
       {media.type === "tv" && (
         <CardContent className="pt-0 pb-3 px-3">
-          <SeasonAccordion
-            showSeasons={showSeasons}
-            setShowSeasons={setShowSeasons}
-            openSeason={openSeason}
-            setOpenSeason={setOpenSeason}
-            media={media}
-            listItem={listItem}
-            config={config}
-            handleSeasonStatusChange={handleSeasonStatusChange}
-            getSeasonStatus={getSeasonStatus}
-            formatDate={formatDate}
-          />
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 h-9">
+              <TabsTrigger value="seasons" className="text-sm gap-1.5">
+                <Tv className="h-3.5 w-3.5" />
+                Seasons
+              </TabsTrigger>
+              <TabsTrigger value="tracking" className="text-sm gap-1.5">
+                <FileText className="h-3.5 w-3.5" />
+                Show Info
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="seasons" className="mt-2">
+              <SeasonAccordion
+                showSeasons={showSeasons}
+                setShowSeasons={setShowSeasons}
+                openSeason={openSeason}
+                setOpenSeason={setOpenSeason}
+                media={media}
+                listItem={listItem}
+                config={config}
+                handleSeasonStatusChange={handleSeasonStatusChange}
+                getSeasonStatus={getSeasonStatus}
+                getSeasonProgress={getSeasonProgress}
+                formatDate={formatDate}
+                handleSeasonRatingChange={handleSeasonRatingChange}
+                handleSeasonNotesChange={handleSeasonNotesChange}
+                handleSeasonDatesChange={handleSeasonDatesChange}
+              />
+            </TabsContent>
+
+            <TabsContent value="tracking" className="mt-2">
+              <TrackingForm
+                startedAt={startedAt}
+                finishedAt={finishedAt}
+                tags={tags}
+                notes={notes}
+                mediaTitle={media.title}
+                mediaType={media.type}
+                onDatesChange={handleDatesChange}
+                onTagsChange={handleTagsChange}
+                onNotesChange={handleNotesChange}
+                onDelete={handleDelete}
+              />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       )}
+
+      {/* MOVIES: Just show Movie Info form inline (no seasons) */}
+      {media.type === "movie" && (
+        <CardContent className="pt-0 pb-3 px-3">
+          <details className="group border-t border-border/50">
+            <summary className="flex items-center justify-center gap-2 cursor-pointer text-sm font-medium text-foreground hover:text-primary transition-colors py-2 px-1 -mx-1 rounded-md hover:bg-accent/50">
+              <FileText className="h-4 w-4" />
+              <span>Movie Info</span>
+              <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="pt-3 pb-1 border-t border-border/30 mt-2">
+              <TrackingForm
+                startedAt={startedAt}
+                finishedAt={finishedAt}
+                tags={tags}
+                notes={notes}
+                mediaTitle={media.title}
+                mediaType={media.type}
+                onDatesChange={handleDatesChange}
+                onTagsChange={handleTagsChange}
+                onNotesChange={handleNotesChange}
+                onDelete={handleDelete}
+              />
+            </div>
+          </details>
+        </CardContent>
+      )}
+
+      {/* FOOTER: Added date */}
+      <div className="px-4 pb-3 text-right">
+        <span className="text-xs text-muted-foreground/50">
+          Added {formatAddedDate(_creationTime)}
+        </span>
+      </div>
     </Card>
   );
 }

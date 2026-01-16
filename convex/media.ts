@@ -1,4 +1,9 @@
-import { action, internalMutation, internalQuery, mutation } from "./_generated/server";
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  mutation,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -20,23 +25,23 @@ export const createMedia = internalMutation({
     let seasonData = undefined;
     let totalSeasons = undefined;
     let totalEpisodes = undefined;
-    
+
     if (args.type === "tv" && tmdbData.seasons) {
       // Filter out season 0 (Specials) for actual seasons
       const actualSeasons = tmdbData.seasons.filter(
         (season: any) => season.season_number > 0
       );
-      
+
       // Use number_of_seasons from API (already excludes season 0)
       // OR use filtered length as fallback
       totalSeasons = tmdbData.number_of_seasons ?? actualSeasons.length;
-      
+
       // Calculate total episodes from actual seasons
       totalEpisodes = actualSeasons.reduce(
         (sum: number, season: any) => sum + (season.episode_count || 0),
         0
       );
-      
+
       // Store season data (only actual seasons, not specials)
       seasonData = actualSeasons.map((season: any) => ({
         seasonNumber: season.season_number,
@@ -46,40 +51,47 @@ export const createMedia = internalMutation({
     }
 
     // Extract genres with id and name
-    const genres = tmdbData.genres?.map((g: any) => ({
-      id: g.id,
-      name: g.name,
-    })) || [];
+    const genres =
+      tmdbData.genres?.map((g: any) => ({
+        id: g.id,
+        name: g.name,
+      })) || [];
 
     // Extract overview (store undefined if empty string)
-    const overview = tmdbData.overview && tmdbData.overview.trim() 
-      ? tmdbData.overview 
-      : undefined;
+    const overview =
+      tmdbData.overview && tmdbData.overview.trim()
+        ? tmdbData.overview
+        : undefined;
 
     // Extract tagline (store undefined if empty string)
-    const tagline = tmdbData.tagline && tmdbData.tagline.trim() 
-      ? tmdbData.tagline 
-      : undefined;
+    const tagline =
+      tmdbData.tagline && tmdbData.tagline.trim()
+        ? tmdbData.tagline
+        : undefined;
 
     // Extract vote average
-    const voteAverage = tmdbData.vote_average !== undefined && tmdbData.vote_average !== null
-      ? tmdbData.vote_average
-      : undefined;
+    const voteAverage =
+      tmdbData.vote_average !== undefined && tmdbData.vote_average !== null
+        ? tmdbData.vote_average
+        : undefined;
 
     // Extract last air date (TV only)
-    const lastAirDate = args.type === "tv" && tmdbData.last_air_date
-      ? tmdbData.last_air_date
-      : undefined;
+    const lastAirDate =
+      args.type === "tv" && tmdbData.last_air_date
+        ? tmdbData.last_air_date
+        : undefined;
 
     // Extract watch providers (US flatrate only)
     let watchProviders = undefined;
     if (args.watchProviders?.results?.US?.flatrate) {
-      watchProviders = args.watchProviders.results.US.flatrate.map((provider: any) => ({
-        providerId: provider.provider_id,
-        providerName: provider.provider_name,
-        logoPath: provider.logo_path || undefined,
-        displayPriority: provider.display_priority,
-      }));
+      watchProviders = args.watchProviders.results.US.flatrate.map(
+        (provider: any) => ({
+          providerId: provider.provider_id,
+          providerName: provider.provider_name,
+          logoPath: provider.logo_path || undefined,
+          displayPriority: provider.display_priority,
+        })
+      );
     }
 
     // Create media record
@@ -93,7 +105,8 @@ export const createMedia = internalMutation({
       backdropUrl: tmdbData.backdrop_path
         ? `https://image.tmdb.org/t/p/w1280${tmdbData.backdrop_path}`
         : undefined,
-      releaseDate: tmdbData.release_date || tmdbData.first_air_date || undefined,
+      releaseDate:
+        tmdbData.release_date || tmdbData.first_air_date || undefined,
       genres,
       overview,
       tagline,
@@ -158,19 +171,18 @@ export const getOrCreateMedia = action({
 
     const tmdbData = await response.json();
 
-    // Fetch watch providers
+    // Fetch watch providers (non-critical)
     const watchProvidersUrl = `${TMDB_API_BASE}/${endpoint}/${args.tmdbId}/watch/providers?api_key=${apiKey}`;
     let watchProvidersData = undefined;
-    
+
     try {
       const watchProvidersResponse = await fetch(watchProvidersUrl);
       if (watchProvidersResponse.ok) {
         watchProvidersData = await watchProvidersResponse.json();
       }
-      // If watch providers fetch fails, continue without it (not critical)
-    } catch (error) {
-      console.error("Error fetching watch providers:", error);
-      // Continue without watch providers
+      // If this fails, we intentionally continue without watch providers
+    } catch {
+      // Swallow error intentionally — non-critical
     }
 
     // Create media record using internal mutation
@@ -217,4 +229,3 @@ export const clearTestData = mutation({
     };
   },
 });
-

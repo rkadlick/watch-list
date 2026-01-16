@@ -519,11 +519,12 @@ export const updateTags = mutation({
 });
 
 // Update dates (startedAt/finishedAt)
+// Note: Pass null to explicitly clear a field, undefined to leave it unchanged
 export const updateDates = mutation({
   args: {
     listItemId: v.id("listItems"),
-    startedAt: v.optional(v.number()),
-    finishedAt: v.optional(v.number()),
+    startedAt: v.optional(v.union(v.number(), v.null())),
+    finishedAt: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -547,12 +548,17 @@ export const updateDates = mutation({
       throw new Error("Not authorized to update this item");
     }
 
-    const updates: any = {};
+    const updates: {
+      startedAt?: number | undefined;
+      finishedAt?: number | undefined;
+    } = {};
+    // If startedAt is explicitly passed (not undefined), update it
+    // null means clear it (set to undefined in DB), number means set the value
     if (args.startedAt !== undefined) {
-      updates.startedAt = args.startedAt;
+      updates.startedAt = args.startedAt === null ? undefined : args.startedAt;
     }
     if (args.finishedAt !== undefined) {
-      updates.finishedAt = args.finishedAt;
+      updates.finishedAt = args.finishedAt === null ? undefined : args.finishedAt;
     }
 
     await ctx.db.patch(args.listItemId, updates);
@@ -705,12 +711,13 @@ export const updateSeasonNotes = mutation({
 });
 
 // Update season dates (startedAt/finishedAt)
+// Note: Pass null to explicitly clear a field, undefined to leave it unchanged
 export const updateSeasonDates = mutation({
   args: {
     listItemId: v.id("listItems"),
     seasonNumber: v.number(),
-    startedAt: v.optional(v.number()),
-    finishedAt: v.optional(v.number()),
+    startedAt: v.optional(v.union(v.number(), v.null())),
+    finishedAt: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -747,12 +754,16 @@ export const updateSeasonDates = mutation({
     let newProgress: typeof currentProgress;
     if (seasonIndex >= 0) {
       newProgress = [...currentProgress];
-      const updates: any = {};
+      const updates: {
+        startedAt?: number | undefined;
+        finishedAt?: number | undefined;
+      } = {};
+      // null means clear it (set to undefined), number means set the value
       if (args.startedAt !== undefined) {
-        updates.startedAt = args.startedAt;
+        updates.startedAt = args.startedAt === null ? undefined : args.startedAt;
       }
       if (args.finishedAt !== undefined) {
-        updates.finishedAt = args.finishedAt;
+        updates.finishedAt = args.finishedAt === null ? undefined : args.finishedAt;
       }
       newProgress[seasonIndex] = {
         ...newProgress[seasonIndex],
@@ -765,8 +776,8 @@ export const updateSeasonDates = mutation({
         {
           seasonNumber: args.seasonNumber,
           status: "to_watch",
-          startedAt: args.startedAt,
-          finishedAt: args.finishedAt,
+          startedAt: args.startedAt === null ? undefined : args.startedAt,
+          finishedAt: args.finishedAt === null ? undefined : args.finishedAt,
         },
       ];
     }

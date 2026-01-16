@@ -58,7 +58,7 @@ export function StatusMenu<T extends string>({ value, options, onChange, showArr
 			  {options.map((opt) => (
 				<li key={opt.value}>
 				  <button
-					className={`flex w-full items-center justify-between px-3 py-2 text-left hover:bg-muted/60 ${
+					className={`flex w-full items-center justify-between px-3 py-2 text-left hover:bg-muted/60 cursor-pointer ${
 					  opt.value === value ? "text-primary font-semibold" : ""
 					}`}
 					onClick={(e) => {

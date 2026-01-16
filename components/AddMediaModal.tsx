@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { Id } from "@/convex/_generated/dataModel";
+import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
 
 interface AddMediaModalProps {
   open: boolean;
@@ -41,7 +42,15 @@ export function AddMediaModal({
 
   const searchTMDB = useAction(api.tmdb.searchTMDB);
   const getOrCreateMedia = useAction(api.media.getOrCreateMedia);
-  const addListItem = useMutation(api.listItems.addListItem);
+  const {
+    mutate: addListItem,
+    isLoading: isAddingToList,
+  } = useMutationWithError(
+    api.listItems.addListItem,
+    {
+      successMessage: "Added to list",
+    }
+  );
 
   // Keep modal list selection in sync with dashboard selection
   useEffect(() => {
@@ -50,45 +59,50 @@ export function AddMediaModal({
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
-
+  
     setIsSearching(true);
+  
     try {
-      const results = await searchTMDB({ query: searchQuery });
-      console.log(results);
+      const results = await searchTMDB({
+        query: searchQuery,
+      });
+  
       setSearchResults(results || []);
       setVisibleCount(12);
-    } catch (error) {
-      console.error("Search error:", error);
+    } catch {
+      // Intentionally silent — search failure is non-fatal
       setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
   };
 
-  const handleAddToList = async (listId: Id<"lists">) => {
+  const handleAddToList = async (
+    listId: Id<"lists">
+  ) => {
     if (!selectedMedia || !listId) return;
-
-    try {
-      // First, get or create the media (this uses an action which can fetch from TMDB)
-      const mediaId = await getOrCreateMedia({
-        tmdbId: selectedMedia.id,
-        type: selectedMedia.media_type === "movie" ? "movie" : "tv",
-      });
-
-      // Then, add it to the list (this uses a mutation)
-      await addListItem({
-        listId,
-        mediaId,
-      });
-      onOpenChange(false);
-      setSearchQuery("");
-      setSearchResults([]);
-      setSelectedMedia(null);
-      setTargetListId(listId);
-    } catch (error) {
-      console.error("Error adding item:", error);
-      alert("Failed to add item. It may already exist in the list.");
-    }
+  
+    // 1. Get or create media (action)
+    const mediaId = await getOrCreateMedia({
+      tmdbId: selectedMedia.id,
+      type:
+        selectedMedia.media_type === "movie"
+          ? "movie"
+          : "tv",
+    });
+  
+    // 2. Add to list (mutation — wrapped)
+    await addListItem({
+      listId,
+      mediaId,
+    });
+  
+    // 3. Reset UI on success
+    onOpenChange(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSelectedMedia(null);
+    setTargetListId(listId);
   };
 
   const getMediaTitle = (item: any) => {
