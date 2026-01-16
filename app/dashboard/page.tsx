@@ -89,6 +89,8 @@ export default function DashboardPage() {
   const [editListDescription, setEditListDescription] = useState("");
   const [isShareListOpen, setIsShareListOpen] = useState(false);
 
+  
+
   // Sync user when they log in
   useEffect(() => {
     if (isLoaded && user) {
@@ -178,6 +180,25 @@ export default function DashboardPage() {
 
     return items.sort(sorters[currentSort]);
   }, [listItems, activeView, currentSort, typeFilter]);
+
+
+  const currentRole = useMemo(() => {
+    if (!selectedList || !user) return null;
+  
+    if (selectedList.ownerId === user.id) {
+      return "creator";
+    }
+  
+    const member = selectedList.members?.find(
+      (m) => m.clerkId === user.id
+    );
+  
+    return member?.role ?? null;
+  }, [selectedList, user]);
+
+  const canEdit =
+  currentRole === "creator" ||
+  currentRole === "admin";
 
   const handleCreateList = async () => {
     if (!newListName.trim()) return;
@@ -307,10 +328,13 @@ export default function DashboardPage() {
               >
                 <div className="font-medium">{list.name}</div>
                 {list.description && (
-                  <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
                     {list.description}
                   </div>
                 )}
+                <div className="text-xs text-muted-foreground mt-1">
+                  {currentRole ?? "Unknown"}
+                </div>
               </button>
             ))}
           </div>
@@ -362,7 +386,7 @@ export default function DashboardPage() {
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex-1">
-                    {editingListId === selectedList._id ? (
+                    {editingListId === selectedList._id && canEdit ? (
                       <div className="space-y-2">
                         <Input
                           value={editListName}
@@ -436,10 +460,10 @@ export default function DashboardPage() {
                         </Button>
                       </>
                     )}
-                    {selectedList.ownerId === user.id && (
+                    {canEdit && (
                       <Button variant="outline" size="sm" onClick={() => { setIsShareListOpen(true);}}>
                         <Share className="h-3 w-3 mr-1" />
-                        Share
+                        Manage Members ({selectedList.members?.length + 1})
                       </Button>
                     )}
                   </div>
@@ -564,14 +588,14 @@ export default function DashboardPage() {
       </div>
 
       <AddMediaModal
-        open={isAddModalOpen}
+        open={isAddModalOpen && canEdit}
         onOpenChange={setIsAddModalOpen}
         selectedListId={selectedListId}
         lists={lists ?? []}
         onListSelect={(listId) => setSelectedListId(listId)}
       />
 
-      <Dialog open={isCreateListOpen} onOpenChange={setIsCreateListOpen}>
+      <Dialog open={isCreateListOpen && canEdit} onOpenChange={setIsCreateListOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New List</DialogTitle>
@@ -624,7 +648,7 @@ export default function DashboardPage() {
       </Dialog>
       <ShareListDialog
         listId={selectedListId ?? "" as Id<"lists">}
-        open={isShareListOpen}
+        open={isShareListOpen && canEdit}
         onOpenChange={setIsShareListOpen}
       />
     </div>

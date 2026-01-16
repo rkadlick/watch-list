@@ -49,6 +49,15 @@ export function ShareListDialog({
     api.lists.getListMembers,
     open ? { listId } : "skip"
   );
+  const allMembers = members
+  ? [
+      {
+        ...members.owner,
+        role: "owner" as const,
+      },
+      ...members.members,
+    ]
+  : [];
   const existingClerkIds = new Set(
     members?.members.map((m) => m?.clerkId) || []
   );
@@ -116,13 +125,15 @@ export function ShareListDialog({
         searchEmail.trim() &&
         searchResults?.length === 0 && <div>No search results</div>
       )}
-      {members && members.members.length > 0 ? (
+      {allMembers && allMembers.length > 0 ? (
         <div>
           <h4>Current Members</h4>
-          {members.members.map((member) => (
+          {allMembers.map((member) => (
             <div key={member?.clerkId}>
-              <p>{member?.email}</p>
-              <Select
+              <p>{member?.email} - {member?.role}</p>
+              {member?.role !== "owner" && (
+                <>
+                <Select
                 value={member?.role || "viewer"}
                 onValueChange={(value: "admin" | "viewer") =>
                   updateMemberRole({
@@ -147,6 +158,8 @@ export function ShareListDialog({
               >
                 Remove
               </Button>
+              </>
+              )}
             </div>
           ))}
         </div>
