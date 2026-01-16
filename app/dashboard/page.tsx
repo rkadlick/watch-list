@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/Select";
 import { AddMediaModal } from "@/components/AddMediaModal";
 import { MediaCard } from "@/components/media-card/MediaCard";
+import { ShareListDialog } from "@/components/ShareListDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Id } from "@/convex/_generated/dataModel";
 import {
@@ -40,6 +41,7 @@ import {
   Edit2,
   Check,
   X as XIcon,
+  Share,
 } from "lucide-react";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
 
@@ -85,6 +87,7 @@ export default function DashboardPage() {
   const [editingListId, setEditingListId] = useState<Id<"lists"> | null>(null);
   const [editListName, setEditListName] = useState("");
   const [editListDescription, setEditListDescription] = useState("");
+  const [isShareListOpen, setIsShareListOpen] = useState(false);
 
   // Sync user when they log in
   useEffect(() => {
@@ -433,6 +436,12 @@ export default function DashboardPage() {
                         </Button>
                       </>
                     )}
+                    {selectedList.ownerId === user.id && (
+                      <Button variant="outline" size="sm" onClick={() => { setIsShareListOpen(true);}}>
+                        <Share className="h-3 w-3 mr-1" />
+                        Share
+                      </Button>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Select
@@ -613,6 +622,11 @@ export default function DashboardPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <ShareListDialog
+        listId={selectedListId ?? "" as Id<"lists">}
+        open={isShareListOpen}
+        onOpenChange={setIsShareListOpen}
+      />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/Select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/Dialog";
 
 type ShareListDialogProps = {
   listId: Id<"lists">;
@@ -57,8 +58,11 @@ export function ShareListDialog({
     searchEmail.trim() ? { email: searchEmail } : "skip"
   );
   return (
-    <div>
-      <h2>Share List</h2>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+  <DialogContent showCloseButton={false}>
+		<DialogHeader>	
+			<DialogTitle>Share List</DialogTitle>
+      </DialogHeader>
 
       <h3>Add a new member</h3>
       <div className="flex flex-col gap-2">
@@ -149,6 +153,7 @@ export function ShareListDialog({
       ) : (
         <div>No members</div>
       )}
-    </div>
+    </DialogContent>
+    </Dialog>
   );
 }
