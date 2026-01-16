@@ -245,6 +245,63 @@ export const updateMemberRole = mutation({
   },
 });
 
+export const getListMembers = query({
+  args: { listId: v.id("lists") },
+  handler: async (ctx, args) => {
+    const list = await ctx.db.get(args.listId);
+    if (!list) {
+      throw new Error("List not found");
+    }
+
+        // Fetch owner
+        const owner = await ctx.db
+        .query("users")
+        .withIndex("by_clerk_id", (q) =>
+          q.eq("clerkId", list.ownerId)
+        )
+        .unique();
+  
+      if (!owner) {
+        throw new Error("Owner not found");
+      }
+  
+      // Fetch members
+      const members = await Promise.all(
+        list.members.map(async (member) => {
+          const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerk_id", (q) =>
+              q.eq("clerkId", member.clerkId)
+            )
+            .unique();
+  
+          if (!user) {
+            return null;
+          }
+  
+          return {
+            clerkId: user.clerkId,
+            email: user.email,
+            name: user.name,
+            avatarUrl: user.avatarUrl,
+            role: member.role,
+          };
+        })
+      );
+
+    return {
+      owner: {
+        clerkId: owner.clerkId,
+        email: owner.email,
+        name: owner.name,
+        avatarUrl: owner.avatarUrl,
+        role: "owner",
+      },
+      members: members,
+    };
+  }
+});
+
 export const deleteList = mutation({
   args: {
     listId: v.id("lists"),
