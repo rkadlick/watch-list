@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState} from "react";
 import { X, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { DatePicker } from "./DatePicker";
 
 interface TrackingFormProps {
+  canEdit: boolean;
   startedAt?: number;
   finishedAt?: number;
   tags?: string[];
@@ -21,6 +22,7 @@ interface TrackingFormProps {
 }
 
 export function TrackingForm({
+  canEdit,
   startedAt,
   finishedAt,
   tags = [],
@@ -70,15 +72,13 @@ export function TrackingForm({
 
   const handleNotesBlur = () => {
     setIsEditingNotes(false);
-    if (localNotes !== notes) {
+    if (localNotes !== notes && canEdit) {  // ADD canEdit check
       onNotesChange(localNotes);
+    } else if (!canEdit) {
+      // Reset to original notes if canEdit is false
+      setLocalNotes(notes);
     }
   };
-
-  // Sync local notes when prop changes
-  useEffect(() => {
-    setLocalNotes(notes);
-  }, [notes]);
 
   return (
     <div className="space-y-4 py-2">
@@ -90,6 +90,7 @@ export function TrackingForm({
             onChange={handleFinishedChange}
             label="Watched"
             placeholder="Watched on?"
+            disabled={!canEdit}
           />
         ) : (
           <>
@@ -98,6 +99,7 @@ export function TrackingForm({
               onChange={handleStartedChange}
               label="Started watching"
               placeholder="Started?"
+              disabled={!canEdit}
             />
 
             {(startedAt || finishedAt) && (
@@ -108,6 +110,7 @@ export function TrackingForm({
                   onChange={handleFinishedChange}
                   label="Finished watching"
                   placeholder="Finished?"
+                  disabled={!canEdit}
                 />
               </>
             )}
@@ -125,12 +128,14 @@ export function TrackingForm({
               className="text-xs px-2 py-0.5 gap-1 group"
             >
               {tag}
+              {canEdit && (
               <button
                 className="opacity-50 group-hover:opacity-100 hover:text-destructive transition-all cursor-pointer"
                 onClick={() => handleRemoveTag(tag)}
-              >
-                <X className="h-3 w-3" />
-              </button>
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
             </Badge>
           ))}
           
@@ -146,20 +151,23 @@ export function TrackingForm({
               className="h-6 text-xs w-24 bg-background border-0 focus-visible:ring-0 px-2 -mx-2"
             />
           ) : (
+            canEdit && (
             <button
               onClick={() => setIsAddingTag(true)}
               className="flex items-center gap-0.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
             >
               <Plus className="h-3 w-3" />
-              {tags.length === 0 ? "Add tag" : ""}
-            </button>
+                {tags.length === 0 ? "Add tag" : ""}
+              </button>
+            )
           )}
         </div>
       </div>
 
       {/* Notes - Click to Edit - Made more distinct */}
+      {canEdit && (
       <div className="border border-border/50 rounded-md bg-muted/30 px-3 py-2">
-        {isEditingNotes ? (
+        {isEditingNotes && canEdit ? (
           <Textarea
             placeholder="Your thoughts about this show..."
             value={localNotes}
@@ -168,23 +176,28 @@ export function TrackingForm({
             autoFocus
             className="text-xs min-h-[80px] resize-none bg-background border-0 focus-visible:ring-0 px-2 -mx-2"
           />
-        ) : notes ? (
-          <button
-            onClick={() => setIsEditingNotes(true)}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-left w-full line-clamp-3"
-          >
-            {notes}
-          </button>
-        ) : (
-          <button
-            onClick={() => setIsEditingNotes(true)}
-            className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
-          >
-            <Plus className="h-3 w-3" />
-            Add notes
-          </button>
+        ) : canEdit && (  // WRAP BOTH BUTTONS
+          <>
+            {notes ? (
+              <button
+                onClick={() => canEdit && setIsEditingNotes(true)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-left w-full line-clamp-3"
+              >
+                {notes}
+              </button>
+            ) : (
+              <button
+                onClick={() => canEdit && setIsEditingNotes(true)}
+                className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+              >
+                <Plus className="h-3 w-3" />
+                Add notes
+              </button>
+            )}
+          </>
         )}
       </div>
+      )}
     </div>
   );
 }

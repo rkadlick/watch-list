@@ -29,6 +29,7 @@ import { useState } from "react";
 export function MediaCardSmall(props: MediaCardInnerProps) {
   const {
     listItem,
+    canEdit,
     handleStatusChange,
     handleDelete,
     showSeasons,
@@ -122,6 +123,7 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                 {buildMetaInfo()}
               </div>
             </div>
+            {canEdit && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -147,11 +149,12 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            )}
           </div>
 
           {/* ROW 1: Status + Priority */}
           <div className="flex items-center gap-2">
-            {media.type === "movie" ? (
+            {media.type === "movie" && canEdit ? (
               <StatusMenu
                 value={status}
                 onChange={handleStatusChange}
@@ -166,20 +169,24 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                 {statusLabels[status]}
               </Badge>
             )}
+            {canEdit && (
             <PrioritySelector
               priority={priority}
               onPriorityChange={handlePriorityChange}
               size="sm"
             />
+            )}
               </div>
 
           {/* ROW 2: Ratings (User + TMDB) */}
           <div className="flex items-center gap-3">
+            {canEdit && (
             <UserRatingPopover
               rating={rating}
               onRatingChange={handleRatingChange}
               size="sm"
             />
+            )}
             {media.voteAverage && <RatingCircle score={media.voteAverage} size={36} />}
           </div>
 
@@ -274,6 +281,7 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
 
             <TabsContent value="seasons" className="mt-3">
           <SeasonAccordion
+            canEdit={canEdit}
             showSeasons={showSeasons}
             setShowSeasons={setShowSeasons}
             openSeason={openSeason}
@@ -293,6 +301,7 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
 
             <TabsContent value="tracking" className="mt-3">
               <TrackingForm
+                canEdit={canEdit}
                 startedAt={startedAt}
                 finishedAt={finishedAt}
                 tags={tags}
@@ -320,6 +329,7 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
             </summary>
             <div className="pt-3 pb-1 border-t border-border/30 mt-2">
               <TrackingForm
+                canEdit={canEdit}
                 startedAt={startedAt}
                 finishedAt={finishedAt}
                 tags={tags}

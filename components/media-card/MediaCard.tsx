@@ -8,7 +8,7 @@ import { MediaCardSmall } from "./MediaCardSmall";
 import { MediaCardRegular } from "./MediaCardRegular";
 import { formatDateDisplay } from "@/lib/dates";
 
-export function MediaCard({ listItem, size = "small" }: MediaCardProps) {
+export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps) {
   // Mutations
   const {
     mutate: updateStatus,
@@ -198,6 +198,7 @@ export function MediaCard({ listItem, size = "small" }: MediaCardProps) {
   };
 
   const commonProps = {
+    canEdit,
     listItem,
     handleStatusChange,
     handleDelete,

@@ -32,6 +32,7 @@ interface MediaCardRegularComponentProps extends MediaCardInnerProps {
 export function MediaCardRegular(props: MediaCardRegularComponentProps) {
   const {
     listItem,
+    canEdit,
     size = "normal",
     handleStatusChange,
     handleDelete,
@@ -135,6 +136,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
               </div>
             </div>
 
+            {canEdit && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -160,12 +162,13 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            )}
           </div>
 
           <div className={`flex flex-col ${config.gap}`}>
             {/* HEADER INJECTION: Status + User Rating + TMDB + Priority */}
             <div className="flex items-center gap-2 flex-wrap">
-              {media.type === "movie" ? (
+              {media.type === "movie" && canEdit ? (
                 <StatusMenu
                   value={status}
                   onChange={handleStatusChange}
@@ -182,21 +185,25 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
               )}
 
               {/* User Rating (clickable star) */}
-              <UserRatingPopover
+              {canEdit && (
+                <UserRatingPopover
                 rating={rating}
                 onRatingChange={handleRatingChange}
                 size={size === "large" ? "md" : "sm"}
               />
+              )}
 
               {/* TMDB Score */}
               {media.voteAverage && <RatingCircle score={media.voteAverage} size={size === "large" ? 44 : 36} />}
 
               {/* Priority (clickable selector) */}
+              {canEdit && (
               <PrioritySelector
                 priority={priority}
                 onPriorityChange={handlePriorityChange}
                 size={size === "large" ? "md" : "sm"}
               />
+              )}
             </div>
 
             {/* Genres - dot separated */}
@@ -275,6 +282,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
 
             <TabsContent value="seasons" className="mt-2">
               <SeasonAccordion
+                canEdit={canEdit}
                 showSeasons={showSeasons}
                 setShowSeasons={setShowSeasons}
                 openSeason={openSeason}
@@ -294,6 +302,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
 
             <TabsContent value="tracking" className="mt-2">
               <TrackingForm
+                canEdit={canEdit}
                 startedAt={startedAt}
                 finishedAt={finishedAt}
                 tags={tags}
@@ -321,6 +330,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
             </summary>
             <div className="pt-3 pb-1 border-t border-border/30 mt-2">
               <TrackingForm
+                canEdit={canEdit}
                 startedAt={startedAt}
                 finishedAt={finishedAt}
                 tags={tags}

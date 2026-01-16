@@ -7,6 +7,7 @@ import { DatePicker } from "./DatePicker";
 import { formatISODateDisplay } from "@/lib/dates";
 
 interface SeasonEditFormProps {
+  canEdit: boolean;
   seasonNumber: number;
   episodeCount?: number;
   airDate?: string;
@@ -20,6 +21,7 @@ interface SeasonEditFormProps {
 }
 
 export function SeasonEditForm({
+  canEdit,
   seasonNumber,
   episodeCount,
   airDate,
@@ -72,6 +74,7 @@ export function SeasonEditForm({
       {/* Dates Row */}
       <div className="flex items-center gap-4">
         <DatePicker
+          disabled={!canEdit}
           value={startedAt}
           onChange={handleStartedChange}
           label="Started this season"
@@ -82,6 +85,7 @@ export function SeasonEditForm({
           <>
             <span className="text-muted-foreground/40">→</span>
             <DatePicker
+              disabled={!canEdit}
               value={finishedAt}
               onChange={handleFinishedChange}
               label="Finished this season"
@@ -92,6 +96,7 @@ export function SeasonEditForm({
       </div>
 
       {/* Notes - Click to Edit - Made more distinct */}
+      {canEdit && (
       <div className="border border-border/50 rounded-md bg-muted/30 px-3 py-2">
         {isEditingNotes ? (
           <Textarea
@@ -117,8 +122,9 @@ export function SeasonEditForm({
             <Plus className="h-3 w-3" />
             Add note
           </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

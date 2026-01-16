@@ -15,6 +15,7 @@ export interface SeasonProgress {
 }
 
 export interface MediaCardProps {
+  canEdit: boolean;
   size?: CardSize;
   listItem: {
     _id: Id<"listItems">;

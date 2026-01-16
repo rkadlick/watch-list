@@ -20,6 +20,7 @@ import { statusColors, SeasonProgress, StatusValue } from "./types";
 import { cn } from "@/lib/utils";
 
 interface SeasonAccordionProps {
+  canEdit: boolean;
   showSeasons: boolean;
   setShowSeasons: (val: boolean) => void;
   openSeason: string | undefined;
@@ -113,6 +114,7 @@ function StarRatingPicker({
 }
 
 export function SeasonAccordion({
+  canEdit,
   openSeason,
   setOpenSeason,
   media,
@@ -158,6 +160,7 @@ export function SeasonAccordion({
                 className="flex items-center gap-2"
                 onClick={(e) => e.stopPropagation()}
               >
+                {canEdit && (
                 <StatusMenu
                   value={seasonStatus}
                   onChange={(v) => handleSeasonStatusChange(season.seasonNumber, v)}
@@ -184,8 +187,9 @@ export function SeasonAccordion({
                     },
                   ]}
                 />
-
+                )}
                 {/* Rating Popover */}
+                {canEdit && (
                 <Popover>
                   <PopoverTrigger asChild>
                     <button
@@ -219,11 +223,13 @@ export function SeasonAccordion({
                     />
                   </PopoverContent>
                 </Popover>
+                )}
               </div>
             </div>
 
             <AccordionContent className="pb-3">
               <SeasonEditForm
+                canEdit={canEdit}
                 seasonNumber={season.seasonNumber}
                 episodeCount={season.episodeCount}
                 airDate={season.airDate}

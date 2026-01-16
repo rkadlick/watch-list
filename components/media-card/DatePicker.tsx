@@ -28,6 +28,7 @@ interface DatePickerProps {
   onChange: (timestamp?: number | null) => void;
   label: string;
   placeholder: string;
+  disabled: boolean;
 }
 
 const MONTHS = [
@@ -54,6 +55,7 @@ export function DatePicker({
   onChange,
   label,
   placeholder,
+  disabled,
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isCleared, setIsCleared] = useState(false);
@@ -64,6 +66,7 @@ export function DatePicker({
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const handleOpenChange = (open: boolean) => {
+    if (disabled) return;
     setIsOpen(open);
     
     if (open) {

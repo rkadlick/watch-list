@@ -89,8 +89,6 @@ export default function DashboardPage() {
   const [editListDescription, setEditListDescription] = useState("");
   const [isShareListOpen, setIsShareListOpen] = useState(false);
 
-  
-
   // Sync user when they log in
   useEffect(() => {
     if (isLoaded && user) {
@@ -181,24 +179,32 @@ export default function DashboardPage() {
     return items.sort(sorters[currentSort]);
   }, [listItems, activeView, currentSort, typeFilter]);
 
-
   const currentRole = useMemo(() => {
     if (!selectedList || !user) return null;
-  
+
     if (selectedList.ownerId === user.id) {
       return "creator";
     }
-  
-    const member = selectedList.members?.find(
-      (m) => m.clerkId === user.id
-    );
-  
+
+    const member = selectedList.members?.find((m) => m.clerkId === user.id);
+
     return member?.role ?? null;
   }, [selectedList, user]);
 
-  const canEdit =
-  currentRole === "creator" ||
-  currentRole === "admin";
+  const canEdit = currentRole === "creator" || currentRole === "admin";
+
+  function getListRole(
+    list: {
+      ownerId: string;
+      members?: Array<{ clerkId: string; role: string }>;
+    },
+    userId: string | null | undefined
+  ): "creator" | "admin" | "viewer" | null {
+    if (!userId) return null;
+    if (list.ownerId === userId) return "creator";
+    const member = list.members?.find((m) => m.clerkId === userId);
+    return (member?.role as "admin" | "viewer") ?? null;
+  }
 
   const handleCreateList = async () => {
     if (!newListName.trim()) return;
@@ -250,7 +256,7 @@ export default function DashboardPage() {
         columnClassName="masonry-column flex flex-col gap-4"
       >
         {filteredItems.map((item) => (
-          <MediaCard key={item._id} listItem={item} size={cardSize} />
+          <MediaCard key={item._id} canEdit={canEdit} listItem={item} size={cardSize} />
         ))}
       </Masonry>
     );
@@ -306,37 +312,49 @@ export default function DashboardPage() {
           >
             {isCreatingList ? "Creating..." : "Create List"}
           </Button>
+          {canEdit && (
           <Button className="w-full" onClick={() => setIsAddModalOpen(true)}>
             Add Media
           </Button>
+          )
+          }
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
           <div className="space-y-2">
-            {lists?.map((list) => (
-              <button
-                key={list._id}
-                onClick={() => {
-                  setSelectedListId(list._id);
-                  setIsSidebarOpen(false);
-                }}
-                className={`w-full rounded-lg border px-3 py-3 text-left transition-colors ${
-                  selectedListId === list._id
-                    ? "border-primary/60 bg-primary/5 text-primary"
-                    : "border-transparent hover:border-border hover:bg-muted/60"
-                }`}
-              >
-                <div className="font-medium">{list.name}</div>
-                {list.description && (
-                  <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                    {list.description}
+            {lists?.map((list) => {
+              const listRole = getListRole(list, user?.id);
+              return (
+                <Button
+                  key={list._id}
+                  onClick={() => {
+                    setSelectedListId(list._id);
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`w-full rounded-lg border px-3 py-3 text-left transition-colors ${
+                    selectedListId === list._id
+                      ? "border-primary/60 bg-primary/5 text-primary"
+                      : "border-transparent hover:border-border hover:bg-muted/60"
+                  }`}
+                >
+                  <div className="font-medium">{list.name}</div>
+                  {list.description && (
+                    <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      {list.description}
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-1 capitalize">
+                    {listRole === "creator"
+                      ? "Creator"
+                      : listRole === "admin"
+                        ? "Admin"
+                        : listRole === "viewer"
+                          ? "Viewer"
+                          : "Unknown"}
                   </div>
-                )}
-                <div className="text-xs text-muted-foreground mt-1">
-                  {currentRole ?? "Unknown"}
-                </div>
-              </button>
-            ))}
+                </Button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -375,7 +393,9 @@ export default function DashboardPage() {
             <Button variant="outline" onClick={() => setIsCreateListOpen(true)}>
               Create List
             </Button>
-            <Button onClick={() => setIsAddModalOpen(true)}>Add Media</Button>
+            {canEdit && (
+              <Button onClick={() => setIsAddModalOpen(true)}>Add Media</Button>
+            )}
           </div>
         </div>
 
@@ -443,7 +463,8 @@ export default function DashboardPage() {
                             {selectedList.description}
                           </p>
                         )}
-                        <Button
+                        {canEdit && (
+                          <Button 
                           size="sm"
                           variant="ghost"
                           className="mt-2"
@@ -458,10 +479,17 @@ export default function DashboardPage() {
                           <Edit2 className="h-3 w-3 mr-1" />
                           Edit
                         </Button>
+                        )}
                       </>
                     )}
                     {canEdit && (
-                      <Button variant="outline" size="sm" onClick={() => { setIsShareListOpen(true);}}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setIsShareListOpen(true);
+                        }}
+                      >
                         <Share className="h-3 w-3 mr-1" />
                         Manage Members ({selectedList.members?.length + 1})
                       </Button>
@@ -595,7 +623,10 @@ export default function DashboardPage() {
         onListSelect={(listId) => setSelectedListId(listId)}
       />
 
-      <Dialog open={isCreateListOpen && canEdit} onOpenChange={setIsCreateListOpen}>
+      <Dialog
+        open={isCreateListOpen}
+        onOpenChange={setIsCreateListOpen}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New List</DialogTitle>
@@ -647,7 +678,7 @@ export default function DashboardPage() {
         </DialogContent>
       </Dialog>
       <ShareListDialog
-        listId={selectedListId ?? "" as Id<"lists">}
+        listId={selectedListId ?? ("" as Id<"lists">)}
         open={isShareListOpen && canEdit}
         onOpenChange={setIsShareListOpen}
       />
