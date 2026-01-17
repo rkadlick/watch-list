@@ -14,9 +14,17 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
 import { Id } from "@/convex/_generated/dataModel";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
+import { Loader2 } from "lucide-react";
+import { SearchResultSkeleton } from "./media-card/SearchResultSkeleton";
 
 interface AddMediaModalProps {
   open: boolean;
@@ -37,20 +45,17 @@ export function AddMediaModal({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<any | null>(null);
-  const [targetListId, setTargetListId] = useState<Id<"lists"> | null>(selectedListId);
+  const [targetListId, setTargetListId] = useState<Id<"lists"> | null>(
+    selectedListId
+  );
   const [visibleCount, setVisibleCount] = useState(12);
 
   const searchTMDB = useAction(api.tmdb.searchTMDB);
   const getOrCreateMedia = useAction(api.media.getOrCreateMedia);
-  const {
-    mutate: addListItem,
-    isPending: isAddingToList,
-  } = useMutationWithError(
-    api.listItems.addListItem,
-    {
+  const { mutate: addListItem, isPending: isAddingToList } =
+    useMutationWithError(api.listItems.addListItem, {
       successMessage: "Added to list",
-    }
-  );
+    });
 
   // Keep modal list selection in sync with dashboard selection
   useEffect(() => {
@@ -59,14 +64,14 @@ export function AddMediaModal({
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
-  
+
     setIsSearching(true);
-  
+
     try {
       const results = await searchTMDB({
         query: searchQuery,
       });
-  
+
       setSearchResults(results || []);
       setVisibleCount(12);
     } catch {
@@ -77,26 +82,21 @@ export function AddMediaModal({
     }
   };
 
-  const handleAddToList = async (
-    listId: Id<"lists">
-  ) => {
+  const handleAddToList = async (listId: Id<"lists">) => {
     if (!selectedMedia || !listId) return;
-  
+
     // 1. Get or create media (action)
     const mediaId = await getOrCreateMedia({
       tmdbId: selectedMedia.id,
-      type:
-        selectedMedia.media_type === "movie"
-          ? "movie"
-          : "tv",
+      type: selectedMedia.media_type === "movie" ? "movie" : "tv",
     });
-  
+
     // 2. Add to list (mutation — wrapped)
     await addListItem({
       listId,
       mediaId,
     });
-  
+
     // 3. Reset UI on success
     onOpenChange(false);
     setSearchQuery("");
@@ -110,7 +110,12 @@ export function AddMediaModal({
   };
 
   const getSeasonCount = (item: any) => {
-    return item.number_of_seasons ?? item.season_count ?? item.seasons?.length ?? null;
+    return (
+      item.number_of_seasons ??
+      item.season_count ??
+      item.seasons?.length ??
+      null
+    );
   };
 
   const getMediaPoster = (item: any) => {
@@ -124,8 +129,8 @@ export function AddMediaModal({
     if (!dateString) return "N/A";
     try {
       const date = new Date(dateString);
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
+      const day = date.getDate().toString().padStart(2, "0");
       const year = date.getFullYear();
       return `${month}-${day}-${year}`;
     } catch {
@@ -142,11 +147,12 @@ export function AddMediaModal({
         <DialogHeader>
           <DialogTitle>Add Media</DialogTitle>
           <DialogDescription>
-            Search for movies or TV shows to add to your list. Choose a list, pick a title, and add without scrolling.
+            Search for movies or TV shows to add to your list. Choose a list,
+            pick a title, and add without scrolling.
           </DialogDescription>
         </DialogHeader>
-
         <div className="flex flex-col gap-4 h-[75vh]">
+          {/* Search input - fixed at top */}
           <div className="flex flex-col gap-3">
             <div className="flex gap-2">
               <Input
@@ -160,28 +166,49 @@ export function AddMediaModal({
                 }}
               />
               <Button onClick={handleSearch} disabled={isSearching}>
-                {isSearching ? "Searching..." : "Search"}
+                {isSearching ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  "Search"
+                )}
               </Button>
             </div>
-            {searchResults.length === 0 && (
-              <div className="rounded-lg border border-dashed border-muted text-muted-foreground px-4 py-6 text-sm">
-                Search for a title to see results.
-              </div>
-            )}
           </div>
 
+          {/* Scrollable results area - shows skeleton OR results OR empty state */}
           <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-            {searchResults.length > 0 && (
+            {isSearching ? (
               <>
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">Search Results</h3>
                   <div className="text-xs text-muted-foreground">
-                    Showing {Math.min(visibleCount, searchResults.length)} of {searchResults.length}
+                    Searching...
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <SearchResultSkeleton key={i} />
+                  ))}
+                </div>
+              </>
+            ) : searchResults.length > 0 ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Search Results</h3>
+                  <div className="text-xs text-muted-foreground">
+                    Showing {Math.min(visibleCount, searchResults.length)} of{" "}
+                    {searchResults.length}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {paginatedResults
-                    .filter((item) => item.media_type === "movie" || item.media_type === "tv")
+                    .filter(
+                      (item) =>
+                        item.media_type === "movie" || item.media_type === "tv"
+                    )
                     .map((item) => {
                       const seasonCount = getSeasonCount(item);
                       return (
@@ -214,7 +241,9 @@ export function AddMediaModal({
                                 {getMediaTitle(item)}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {formatDate(item.release_date || item.first_air_date)}
+                                {formatDate(
+                                  item.release_date || item.first_air_date
+                                )}
                               </div>
                               <div className="text-xs text-muted-foreground capitalize">
                                 {item.media_type}
@@ -227,18 +256,27 @@ export function AddMediaModal({
                 </div>
                 {visibleCount < searchResults.length && (
                   <div className="flex justify-center">
-                    <Button variant="outline" onClick={() => setVisibleCount((c) => c + 12)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setVisibleCount((c) => c + 12)}
+                    >
                       Load 12 more
                     </Button>
                   </div>
                 )}
               </>
+            ) : (
+              <div className="rounded-lg border border-dashed border-muted text-muted-foreground px-4 py-6 text-sm">
+                Search for a title to see results.
+              </div>
             )}
           </div>
 
           <div className="flex items-center gap-3 border-t pt-3 bg-background sticky bottom-0">
             <div className="flex-1">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Add to list</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                Add to list
+              </div>
               {listIsSelectable ? (
                 <Select
                   value={targetListId ?? undefined}
@@ -282,4 +320,3 @@ export function AddMediaModal({
     </Dialog>
   );
 }
-

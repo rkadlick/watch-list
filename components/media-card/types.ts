@@ -51,17 +51,7 @@ export interface MediaCardProps {
       }>;
     } | null;
   };
-  isUpdatingStatus: boolean;
-  isDeleting: boolean;
-  isUpdatingRating: boolean;
-  isUpdatingPriority: boolean;
-  isUpdatingNotes: boolean;
-  isUpdatingTags: boolean;
-  isUpdatingDates: boolean;
-  isUpdatingSeasonStatus: boolean;
-  isUpdatingSeasonRating: boolean;
-  isUpdatingSeasonNotes: boolean;
-  isUpdatingSeasonDates: boolean;
+
 }
 
 // Extended props for the inner card components
@@ -87,6 +77,17 @@ export interface MediaCardInnerProps extends Omit<MediaCardProps, "size"> {
   handleSeasonDatesChange: (seasonNumber: number, startedAt?: number | null, finishedAt?: number | null) => Promise<void>;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  isUpdatingStatus: boolean;
+  isDeleting: boolean;
+  isUpdatingRating: boolean;
+  isUpdatingPriority: boolean;
+  isUpdatingNotes: boolean;
+  isUpdatingTags: boolean;
+  isUpdatingDates: boolean;
+  isUpdatingSeasonStatus: boolean;
+  isUpdatingSeasonRating: boolean;
+  isUpdatingSeasonNotes: boolean;
+  isUpdatingSeasonDates: boolean;
 }
 
 export const statusLabels = {
