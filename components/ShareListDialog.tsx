@@ -42,16 +42,16 @@ export function ShareListDialog({
   const [selectedRole, setSelectedRole] = useState<"admin" | "viewer">(
     "viewer"
   );
-  const { mutate: addMember } = useMutationWithError(api.lists.addMember, {
+  const { mutate: addMember, isPending: isAddingMember } = useMutationWithError(api.lists.addMember, {
     successMessage: "Member added",
   });
-  const { mutate: removeMember } = useMutationWithError(
+  const { mutate: removeMember, isPending: isRemovingMember } = useMutationWithError(
     api.lists.removeMember,
     {
       successMessage: "Member removed",
     }
   );
-  const { mutate: updateMemberRole } = useMutationWithError(
+  const { mutate: updateMemberRole, isPending: isUpdatingMemberRole } = useMutationWithError(
     api.lists.updateMemberRole,
     {
       successMessage: "Member role updated",

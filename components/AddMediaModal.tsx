@@ -44,7 +44,7 @@ export function AddMediaModal({
   const getOrCreateMedia = useAction(api.media.getOrCreateMedia);
   const {
     mutate: addListItem,
-    isLoading: isAddingToList,
+    isPending: isAddingToList,
   } = useMutationWithError(
     api.listItems.addListItem,
     {
@@ -272,9 +272,9 @@ export function AddMediaModal({
                   handleAddToList(targetListId);
                 }
               }}
-              disabled={!selectedMedia || !targetListId}
+              disabled={!selectedMedia || !targetListId || isAddingToList}
             >
-              Add to List
+              {isAddingToList ? "Adding..." : "Add to List"}
             </Button>
           </div>
         </div>

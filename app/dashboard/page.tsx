@@ -75,15 +75,15 @@ export default function DashboardPage() {
   const { user, isLoaded } = useUser();
   const lists = useQuery(api.lists.getMyLists, isLoaded ? undefined : "skip");
   const syncUser = useMutation(api.users.syncUser);
-  const { mutate: createList, isLoading: isCreatingList } =
+  const { mutate: createList, isPending: isCreatingList } =
     useMutationWithError(api.lists.createList, {
       successMessage: "List created",
     });
-  const { mutate: updateList, isLoading: isUpdatingList } =
+  const { mutate: updateList, isPending: isUpdatingList } =
     useMutationWithError(api.lists.updateList, {
       successMessage: "List updated",
     });
-  const { mutate: deleteList, isLoading: isDeletingList } =
+  const { mutate: deleteList, isPending: isDeletingList } =
     useMutationWithError(api.lists.deleteList, {
       successMessage: "List deleted",
     });

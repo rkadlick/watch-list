@@ -12,7 +12,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   // Mutations
   const {
     mutate: updateStatus,
-    isLoading: isUpdatingStatus,
+    isPending: isUpdatingStatus,
   } = useMutationWithError(
     api.listItems.updateStatus,
     {
@@ -21,7 +21,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   );
   const {
     mutate: updateSeasonStatus,
-    isLoading: isUpdatingSeasonStatus,
+    isPending: isUpdatingSeasonStatus,
   } = useMutationWithError(
     api.listItems.updateSeasonStatus,
     {
@@ -30,7 +30,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   );
   const {
     mutate: deleteListItem,
-    isLoading: isDeleting,
+    isPending: isDeleting,
   } = useMutationWithError(
     api.listItems.deleteListItem,
     {
@@ -39,7 +39,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   );
     const {
     mutate: updateRating,
-    isLoading: isUpdatingRating,
+    isPending: isUpdatingRating,
   } = useMutationWithError(
     api.listItems.updateRating,
     {
@@ -48,7 +48,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   );
   const {
     mutate: updatePriority,
-    isLoading: isUpdatingPriority,
+    isPending: isUpdatingPriority,
   } = useMutationWithError(
     api.listItems.updatePriority,
     {
@@ -57,7 +57,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   );
   const {
     mutate: updateNotes,
-    isLoading: isUpdatingNotes,
+    isPending: isUpdatingNotes,
   } = useMutationWithError(
     api.listItems.updateNotes,
     {
@@ -66,7 +66,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   );
   const {
     mutate: updateTags,
-    isLoading: isUpdatingTags,
+    isPending: isUpdatingTags,
   } = useMutationWithError(
     api.listItems.updateTags,
     {
@@ -75,7 +75,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   );
   const {
     mutate: updateDates,
-    isLoading: isUpdatingDates,
+    isPending: isUpdatingDates,
   } = useMutationWithError(
     api.listItems.updateDates,
     {
@@ -84,7 +84,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   );
   const {
     mutate: updateSeasonRating,
-    isLoading: isUpdatingSeasonRating,
+    isPending: isUpdatingSeasonRating,
   } = useMutationWithError(
     api.listItems.updateSeasonRating,
     {
@@ -93,7 +93,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   );
   const {
     mutate: updateSeasonNotes,
-    isLoading: isUpdatingSeasonNotes,
+    isPending: isUpdatingSeasonNotes,
   } = useMutationWithError(
     api.listItems.updateSeasonNotes,
     {
@@ -102,7 +102,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   );
   const {
     mutate: updateSeasonDates,
-    isLoading: isUpdatingSeasonDates,
+    isPending: isUpdatingSeasonDates,
   } = useMutationWithError(
     api.listItems.updateSeasonDates,
     {

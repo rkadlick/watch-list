@@ -22,11 +22,13 @@ export function useMutationWithError<
   options?: MutationOptions
 ) {
   const mutationFn = useMutation(mutation);
-  const [isLoading, setIsLoading] = useState(false);
+
+    // unified pending flag (alias for backward compatibility)
+    const [isPending, setIsPending] = useState(false);  
 
   const mutate = useCallback(
     async (...args: Parameters<typeof mutationFn>) => {
-      setIsLoading(true);
+      setIsPending(true);
 
       try {
         const result = await mutationFn(...args);
@@ -49,7 +51,7 @@ export function useMutationWithError<
         handleConvexMutationError(error);
         throw error;
       } finally {
-        setIsLoading(false);
+        setIsPending(false);
       }
     },
     [mutationFn, options]
@@ -57,7 +59,7 @@ export function useMutationWithError<
 
   return {
     mutate,
-    isLoading,
+    isPending,
   };
 }
 
