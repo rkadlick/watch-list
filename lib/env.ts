@@ -11,12 +11,14 @@ const requiredClientEnvVars = ["NEXT_PUBLIC_CONVEX_URL"] as const;
 const optionalClientEnvVars = ["NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"] as const;
 
 const requiredServerEnvVars = [
-  "CONVEX_DEPLOYMENT",
-  "CLERK_PUBLISHABLE_KEY",
+  "NEXT_PUBLIC_CONVEX_URL",
   "CLERK_JWT_ISSUER_DOMAIN",
   "TMDB_API_KEY",
 ] as const;
-const optionalServerEnvVars = [] as const;
+const optionalServerEnvVars = [
+  "CLERK_PUBLISHABLE_KEY",
+  "CLERK_SECRET_KEY",
+] as const;
 
 type RequiredClientEnvVar = (typeof requiredClientEnvVars)[number];
 type OptionalClientEnvVar = (typeof optionalClientEnvVars)[number];

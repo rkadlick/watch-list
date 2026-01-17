@@ -5,8 +5,8 @@ import { ConvexClientProvider } from "@/components/ConvexProvider";
 import "./globals.css";
 import { Toaster } from "@/components/ui/Sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { validateEnv } from "@/lib/env";
-import { validateServerEnv } from "@/lib/env-check";
+// Environment validation runs automatically via lib/env-check.ts import
+import "@/lib/env-check";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,16 +28,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  
-  if (typeof window === "undefined") {
-    // Server-only validation
-    validateServerEnv();
-  }
-
-  // Client-side (browser-exposed NEXT_PUBLIC_*) validation
-  if (process.env.NODE_ENV === "development") {
-    validateEnv();
-  }
+  // Environment validation runs automatically on import of lib/env-check.ts
+  // No need to call validation functions here
 
   return (
     <html lang="en">
