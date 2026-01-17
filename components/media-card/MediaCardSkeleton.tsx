@@ -1,7 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export function MediaCardSkeleton({ size = "normal" }: { size?: "small" | "normal" | "large" }) {
   // Config scales with the size prop

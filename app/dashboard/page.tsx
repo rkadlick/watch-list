@@ -56,6 +56,7 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@/components/ui/AlertDialog";
+import { MediaCardSkeleton } from "@/components/media-card/MediaCardSkeleton";
 
 type StatusView = "all" | "to_watch" | "watching" | "watched" | "dropped";
 type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
@@ -224,16 +225,12 @@ export default function DashboardPage() {
 
   const handleDeleteList = async () => {
     if (!selectedList) return;
-  
+
     await deleteList({ listId: selectedList._id });
-  
-    const remainingLists = lists?.filter(
-      (l) => l._id !== selectedList._id
-    );
-  
-    setSelectedListId(
-      remainingLists?.[0]?._id ?? null
-    );
+
+    const remainingLists = lists?.filter((l) => l._id !== selectedList._id);
+
+    setSelectedListId(remainingLists?.[0]?._id ?? null);
   };
 
   const handleCreateList = async () => {
@@ -250,12 +247,28 @@ export default function DashboardPage() {
   };
 
   const renderItems = () => {
+    // === Loading (data not yet available)
     if (filteredItems === undefined) {
       return (
-        <div className="flex h-64 items-center justify-center">Loading...</div>
+        <Masonry
+          breakpointCols={{
+            default: cardSize === "large" ? 2 : 4,
+            1600: cardSize === "large" ? 2 : 4,
+            1280: cardSize === "large" ? 2 : 3,
+            1024: cardSize === "large" ? 2 : 2,
+            768: 1,
+          }}
+          className="flex gap-4"
+          columnClassName="masonry-column flex flex-col gap-4"
+        >
+          {Array.from({ length: 8 }).map((_, i) => (
+            <MediaCardSkeleton key={i} size={cardSize} />
+          ))}
+        </Masonry>
       );
     }
 
+    // === Empty state
     if (filteredItems.length === 0) {
       return (
         <Card className="border-dashed">
@@ -269,7 +282,7 @@ export default function DashboardPage() {
       );
     }
 
-    // breakpoints control # of columns
+    // === Ready state — show cards
     const breakpoints = {
       default: cardSize === "large" ? 2 : 4,
       1600: cardSize === "large" ? 2 : 4,
@@ -278,7 +291,6 @@ export default function DashboardPage() {
       768: 1,
     };
 
-    // Masonry layout for grid mode
     return (
       <Masonry
         breakpointCols={breakpoints}
@@ -296,14 +308,6 @@ export default function DashboardPage() {
       </Masonry>
     );
   };
-
-  if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        Loading...
-      </div>
-    );
-  }
 
   if (!user) {
     return (
@@ -435,8 +439,25 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
-
-        {selectedList ? (
+        {!isLoaded ? (
+          // Show skeletons inside the dashboard layout while user/data load
+          <div className="flex-1 overflow-y-auto px-4 py-5 md:px-6">
+            <div
+              className="
+        grid 
+        gap-6 
+        sm:grid-cols-2 
+        md:grid-cols-3 
+        lg:grid-cols-4 
+        xl:grid-cols-5
+      "
+            >
+              {Array.from({ length: 8 }).map((_, i) => (
+                <MediaCardSkeleton key={i} size={cardSize} />
+              ))}
+            </div>
+          </div>
+        ) : selectedList ? (
           <>
             {/* Fixed toolbar section */}
             <div className="border-b bg-card/80 px-4 py-4 md:px-6 backdrop-blur">
@@ -516,13 +537,16 @@ export default function DashboardPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete List</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This will permanently delete the list and all items.
-                                  This cannot be undone.
+                                  This will permanently delete the list and all
+                                  items. This cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteList} disabled={isDeletingList}>
+                                <AlertDialogAction
+                                  onClick={handleDeleteList}
+                                  disabled={isDeletingList}
+                                >
                                   <Trash className="h-3 w-3 mr-1" />
                                   {isDeletingList ? "Deleting..." : "Delete"}
                                 </AlertDialogAction>
