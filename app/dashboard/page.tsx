@@ -516,7 +516,7 @@ export default function DashboardPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete List</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want to delete this list?
+                                  This will permanently delete the list and all items.
                                   This cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
