@@ -51,6 +51,17 @@ export interface MediaCardProps {
       }>;
     } | null;
   };
+  isUpdatingStatus: boolean;
+  isDeleting: boolean;
+  isUpdatingRating: boolean;
+  isUpdatingPriority: boolean;
+  isUpdatingNotes: boolean;
+  isUpdatingTags: boolean;
+  isUpdatingDates: boolean;
+  isUpdatingSeasonStatus: boolean;
+  isUpdatingSeasonRating: boolean;
+  isUpdatingSeasonNotes: boolean;
+  isUpdatingSeasonDates: boolean;
 }
 
 // Extended props for the inner card components

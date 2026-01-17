@@ -6,9 +6,10 @@ interface StatusMenuProps<T extends string> {
 	options: { value: T; label: string; accent: string }[];
 	onChange: (value: T) => void;
 	showArrow?: boolean;
+	disabled?: boolean;
   }
 
-export function StatusMenu<T extends string>({ value, options, onChange, showArrow = true }: StatusMenuProps<T>) {
+export function StatusMenu<T extends string>({ value, options, onChange, showArrow = true, disabled = false }: StatusMenuProps<T>) {
 	const [open, setOpen] = useState(false);
 	const containerRef = useRef<HTMLDivElement | null>(null);
   
@@ -48,6 +49,7 @@ export function StatusMenu<T extends string>({ value, options, onChange, showArr
 			setOpen((prev) => !prev);
 		  }}
 		  onMouseDown={(e) => e.stopPropagation()}
+		  disabled={disabled}
 		>
 		  <span>{active?.label ?? "Status"}</span>
 		  <ChevronDown className="h-3 w-3" />

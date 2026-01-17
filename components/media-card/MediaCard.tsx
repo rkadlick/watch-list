@@ -221,6 +221,18 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
     handleSeasonDatesChange,
     activeTab,
     setActiveTab,
+      // NEW loading flags
+  isUpdatingStatus,
+  isDeleting,
+  isUpdatingRating,
+  isUpdatingPriority,
+  isUpdatingNotes,
+  isUpdatingTags,
+  isUpdatingDates,
+  isUpdatingSeasonStatus,
+  isUpdatingSeasonRating,
+  isUpdatingSeasonNotes,
+  isUpdatingSeasonDates,
   };
 
   if (size === "small") {

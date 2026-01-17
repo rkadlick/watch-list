@@ -15,6 +15,7 @@ interface PrioritySelectorProps {
   priority: Priority;
   onPriorityChange: (priority: Priority) => void;
   size?: "sm" | "md";
+  disabled?: boolean;
 }
 
 const priorityConfig = {
@@ -42,6 +43,7 @@ export function PrioritySelector({
   priority,
   onPriorityChange,
   size = "sm",
+  disabled = false,
 }: PrioritySelectorProps) {
   const [open, setOpen] = useState(false);
   const textSize = size === "sm" ? "text-xs" : "text-sm";
@@ -59,6 +61,8 @@ export function PrioritySelector({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
+          disabled={disabled}
+          aria-disabled={disabled}
           className={cn(
             "flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors cursor-pointer",
             "hover:bg-accent/50",
@@ -92,6 +96,8 @@ export function PrioritySelector({
                 priority === p && "bg-accent"
               )}
               onClick={() => handleSelect(p)}
+              disabled={disabled}
+              aria-disabled={disabled}
             >
               <Circle
                 className={cn("h-2.5 w-2.5", priorityConfig[p].dotColor)}
@@ -110,6 +116,8 @@ export function PrioritySelector({
                   "hover:bg-accent text-muted-foreground"
                 )}
                 onClick={() => handleSelect(undefined)}
+                disabled={disabled}
+                aria-disabled={disabled}
               >
                 <span className={textSize}>Clear priority</span>
               </button>

@@ -14,12 +14,14 @@ interface UserRatingPopoverProps {
   rating?: number;
   onRatingChange: (rating: number | undefined) => void;
   size?: "sm" | "md";
+  disabled?: boolean;
 }
 
 export function UserRatingPopover({
   rating,
   onRatingChange,
   size = "sm",
+  disabled = false,
 }: UserRatingPopoverProps) {
   const [open, setOpen] = useState(false);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
@@ -50,6 +52,7 @@ export function UserRatingPopover({
               ? "text-amber-500"
               : "text-muted-foreground hover:text-amber-500"
           )}
+          disabled={disabled}
         >
           <Star
             className={cn(
@@ -75,6 +78,8 @@ export function UserRatingPopover({
                 onMouseEnter={() => setHoverRating(value)}
                 onMouseLeave={() => setHoverRating(null)}
                 onClick={() => handleRatingClick(value)}
+                disabled={disabled}
+                aria-disabled={disabled}
               >
                 <Star
                   className={cn(
@@ -97,6 +102,7 @@ export function UserRatingPopover({
                 size="sm"
                 className="h-7 text-xs text-muted-foreground hover:text-destructive"
                 onClick={handleClearRating}
+                disabled={disabled}
               >
                 Clear
               </Button>

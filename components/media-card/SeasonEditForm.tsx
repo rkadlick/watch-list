@@ -18,6 +18,8 @@ interface SeasonEditFormProps {
   // Callbacks
   onNotesChange: (notes: string) => void;
   onDatesChange: (startedAt?: number, finishedAt?: number) => void;
+  isUpdatingSeasonNotes: boolean;
+  isUpdatingSeasonDates: boolean;
 }
 
 export function SeasonEditForm({
@@ -30,6 +32,8 @@ export function SeasonEditForm({
   finishedAt,
   onNotesChange,
   onDatesChange,
+  isUpdatingSeasonNotes,
+  isUpdatingSeasonDates,
 }: SeasonEditFormProps) {
   const [localNotes, setLocalNotes] = useState(notes);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
@@ -74,7 +78,7 @@ export function SeasonEditForm({
       {/* Dates Row */}
       <div className="flex items-center gap-4">
         <DatePicker
-          disabled={!canEdit}
+          disabled={!canEdit || isUpdatingSeasonDates}
           value={startedAt}
           onChange={handleStartedChange}
           label="Started this season"
@@ -85,7 +89,7 @@ export function SeasonEditForm({
           <>
             <span className="text-muted-foreground/40">→</span>
             <DatePicker
-              disabled={!canEdit}
+              disabled={!canEdit || isUpdatingSeasonDates}
               value={finishedAt}
               onChange={handleFinishedChange}
               label="Finished this season"
@@ -105,6 +109,7 @@ export function SeasonEditForm({
             onChange={(e) => setLocalNotes(e.target.value)}
             onBlur={handleNotesBlur}
             autoFocus
+            disabled={isUpdatingSeasonNotes}
             className="text-xs min-h-[60px] resize-none bg-background border-0 focus-visible:ring-0 px-2 -mx-2"
           />
         ) : notes ? (

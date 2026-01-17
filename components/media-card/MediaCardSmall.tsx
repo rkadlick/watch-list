@@ -51,6 +51,18 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
     handleSeasonDatesChange,
     activeTab,
     setActiveTab,
+    // NEW loading flags
+    isUpdatingStatus,
+    isDeleting,
+    isUpdatingRating,
+    isUpdatingPriority,
+    isUpdatingNotes,
+    isUpdatingTags,
+    isUpdatingDates,
+    isUpdatingSeasonStatus,
+    isUpdatingSeasonRating,
+    isUpdatingSeasonNotes,
+    isUpdatingSeasonDates,
   } = props;
 
   const { media, status, rating, priority, tags, startedAt, finishedAt, notes, _creationTime } = listItem;
@@ -130,6 +142,7 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 text-muted-foreground hover:text-red-600 flex-shrink-0 cursor-pointer"
+                  disabled={isDeleting}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -144,7 +157,7 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                    Delete
+                    {isDeleting ? "Deleting..." : "Delete"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -163,7 +176,8 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                   label,
                   accent: statusColors[value as StatusValue],
                 }))}
-              />
+                disabled={isUpdatingStatus}
+                />
             ) : (
               <Badge className={`${statusColors[status]} ${config.badgeSize}`}>
                 {statusLabels[status]}
@@ -174,6 +188,7 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
               priority={priority}
               onPriorityChange={handlePriorityChange}
               size="sm"
+              disabled={isUpdatingPriority}
             />
             )}
               </div>
@@ -185,6 +200,7 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
               rating={rating}
               onRatingChange={handleRatingChange}
               size="sm"
+              disabled={isUpdatingRating}
             />
             )}
             {media.voteAverage && <RatingCircle score={media.voteAverage} size={36} />}
@@ -296,6 +312,10 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                 handleSeasonRatingChange={handleSeasonRatingChange}
                 handleSeasonNotesChange={handleSeasonNotesChange}
                 handleSeasonDatesChange={handleSeasonDatesChange}
+                isUpdatingSeasonStatus={isUpdatingSeasonStatus}
+                isUpdatingSeasonRating={isUpdatingSeasonRating}
+                isUpdatingSeasonNotes={isUpdatingSeasonNotes}
+                isUpdatingSeasonDates={isUpdatingSeasonDates}
               />
             </TabsContent>
 
@@ -312,6 +332,9 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                 onTagsChange={handleTagsChange}
                 onNotesChange={handleNotesChange}
                 onDelete={handleDelete}
+                isUpdatingNotes={isUpdatingNotes}
+                isUpdatingTags={isUpdatingTags}
+                isUpdatingDates={isUpdatingDates}
               />
             </TabsContent>
           </Tabs>
@@ -340,6 +363,9 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                 onTagsChange={handleTagsChange}
                 onNotesChange={handleNotesChange}
                 onDelete={handleDelete}
+                isUpdatingNotes={isUpdatingNotes}
+                isUpdatingTags={isUpdatingTags}
+                isUpdatingDates={isUpdatingDates}
               />
             </div>
           </details>

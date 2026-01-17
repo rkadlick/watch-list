@@ -55,6 +55,18 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
     handleSeasonDatesChange,
     activeTab,
     setActiveTab,
+    // NEW loading flags
+    isUpdatingStatus,
+    isDeleting,
+    isUpdatingRating,
+    isUpdatingPriority,
+    isUpdatingNotes,
+    isUpdatingTags,
+    isUpdatingDates,
+    isUpdatingSeasonStatus,
+    isUpdatingSeasonRating,
+    isUpdatingSeasonNotes,
+    isUpdatingSeasonDates,
   } = props;
 
   const { media, status, rating, priority, tags, startedAt, finishedAt, notes, _creationTime } = listItem;
@@ -143,6 +155,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                   variant="ghost"
                   size="icon"
                   className={`${size === "large" ? "h-8 w-8" : "h-7 w-7"} text-muted-foreground hover:text-red-600 flex-shrink-0 cursor-pointer`}
+                  disabled={isDeleting}
                 >
                   <Trash2 className={size === "large" ? "h-5 w-5" : "h-4 w-4"} />
                 </Button>
@@ -157,7 +170,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                    Delete
+                    {isDeleting ? "Deleting..." : "Delete"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -177,6 +190,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                     label,
                     accent: statusColors[value as StatusValue],
                   }))}
+                  disabled={isUpdatingStatus}
                 />
               ) : (
                 <Badge className={`${statusColors[status]} ${config.badgeSize}`}>
@@ -190,6 +204,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                 rating={rating}
                 onRatingChange={handleRatingChange}
                 size={size === "large" ? "md" : "sm"}
+                disabled={isUpdatingRating}
               />
               )}
 
@@ -202,6 +217,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                 priority={priority}
                 onPriorityChange={handlePriorityChange}
                 size={size === "large" ? "md" : "sm"}
+                disabled={isUpdatingPriority}
               />
               )}
             </div>
@@ -297,6 +313,10 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                 handleSeasonRatingChange={handleSeasonRatingChange}
                 handleSeasonNotesChange={handleSeasonNotesChange}
                 handleSeasonDatesChange={handleSeasonDatesChange}
+                isUpdatingSeasonStatus={isUpdatingSeasonStatus}
+                isUpdatingSeasonRating={isUpdatingSeasonRating}
+                isUpdatingSeasonNotes={isUpdatingSeasonNotes}
+                isUpdatingSeasonDates={isUpdatingSeasonDates}
               />
             </TabsContent>
 
@@ -313,6 +333,9 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                 onTagsChange={handleTagsChange}
                 onNotesChange={handleNotesChange}
                 onDelete={handleDelete}
+                isUpdatingNotes={isUpdatingNotes}
+                isUpdatingTags={isUpdatingTags}
+                isUpdatingDates={isUpdatingDates}
               />
             </TabsContent>
           </Tabs>
@@ -341,6 +364,9 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                 onTagsChange={handleTagsChange}
                 onNotesChange={handleNotesChange}
                 onDelete={handleDelete}
+                isUpdatingNotes={isUpdatingNotes}
+                isUpdatingTags={isUpdatingTags}
+                isUpdatingDates={isUpdatingDates}
               />
             </div>
           </details>

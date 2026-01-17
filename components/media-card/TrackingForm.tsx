@@ -19,6 +19,9 @@ interface TrackingFormProps {
   onTagsChange: (tags: string[]) => void;
   onNotesChange: (notes: string) => void;
   onDelete: () => void;
+  isUpdatingNotes: boolean;
+  isUpdatingTags: boolean;
+  isUpdatingDates: boolean;
 }
 
 export function TrackingForm({
@@ -33,6 +36,9 @@ export function TrackingForm({
   onTagsChange,
   onNotesChange,
   onDelete,
+  isUpdatingNotes,
+  isUpdatingTags,
+  isUpdatingDates,
 }: TrackingFormProps) {
   const [newTag, setNewTag] = useState("");
   const [localNotes, setLocalNotes] = useState(notes);
@@ -90,7 +96,7 @@ export function TrackingForm({
             onChange={handleFinishedChange}
             label="Watched"
             placeholder="Watched on?"
-            disabled={!canEdit}
+            disabled={!canEdit || isUpdatingDates}
           />
         ) : (
           <>
@@ -99,7 +105,7 @@ export function TrackingForm({
               onChange={handleStartedChange}
               label="Started watching"
               placeholder="Started?"
-              disabled={!canEdit}
+              disabled={!canEdit || isUpdatingDates}
             />
 
             {(startedAt || finishedAt) && (
@@ -110,7 +116,7 @@ export function TrackingForm({
                   onChange={handleFinishedChange}
                   label="Finished watching"
                   placeholder="Finished?"
-                  disabled={!canEdit}
+                  disabled={!canEdit || isUpdatingDates }
                 />
               </>
             )}
@@ -149,12 +155,14 @@ export function TrackingForm({
               onBlur={handleAddTag}
               autoFocus
               className="h-6 text-xs w-24 bg-background border-0 focus-visible:ring-0 px-2 -mx-2"
+              disabled={isUpdatingTags}
             />
           ) : (
             canEdit && (
             <button
               onClick={() => setIsAddingTag(true)}
               className="flex items-center gap-0.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+              disabled={isUpdatingTags}
             >
               <Plus className="h-3 w-3" />
                 {tags.length === 0 ? "Add tag" : ""}
@@ -175,6 +183,7 @@ export function TrackingForm({
             onBlur={handleNotesBlur}
             autoFocus
             className="text-xs min-h-[80px] resize-none bg-background border-0 focus-visible:ring-0 px-2 -mx-2"
+            disabled={isUpdatingNotes}
           />
         ) : canEdit && (  // WRAP BOTH BUTTONS
           <>

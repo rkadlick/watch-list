@@ -43,6 +43,7 @@ import {
   X as XIcon,
   Share,
   Trash,
+  Loader2,
 } from "lucide-react";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
 import {
@@ -349,7 +350,14 @@ export default function DashboardPage() {
             onClick={() => setIsCreateListOpen(true)}
             disabled={isCreatingList}
           >
-            {isCreatingList ? "Creating..." : "Create List"}
+            {isCreatingList ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              "Create List"
+            )}
           </Button>
           {canEdit && (
             <Button className="w-full" onClick={() => setIsAddModalOpen(true)}>

@@ -119,7 +119,7 @@ export function ShareListDialog({
               <div key={result._id}>
                 <p className="text-sm text-muted-foreground">{result.email}</p>
                 <Button
-                  disabled={existingClerkIds.has(result.clerkId)}
+                  disabled={existingClerkIds.has(result.clerkId) || isAddingMember}
                   onClick={() => {
                     addMember({
                       listId,
@@ -129,7 +129,7 @@ export function ShareListDialog({
                     setSearchEmail("");
                   }}
                 >
-                  Add
+                  {isAddingMember ? "Adding..." : "Add"}
                 </Button>
               </div>
             ))}
@@ -157,6 +157,7 @@ export function ShareListDialog({
                           role: value,
                         })
                       }
+                      disabled={isUpdatingMemberRole || isRemovingMember || isAddingMember}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select role" />
@@ -168,7 +169,9 @@ export function ShareListDialog({
                     </Select>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive">Remove</Button>
+                        <Button variant="destructive" disabled={isRemovingMember}>
+                          {isRemovingMember ? "Removing..." : "Remove"}
+                        </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
@@ -188,7 +191,7 @@ export function ShareListDialog({
                               })
                             }
                           >
-                            Remove
+                            {isRemovingMember ? "Removing..." : "Remove"}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

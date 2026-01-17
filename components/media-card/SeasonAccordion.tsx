@@ -47,15 +47,21 @@ interface SeasonAccordionProps {
   handleSeasonRatingChange: (seasonNumber: number, rating: number | undefined) => Promise<void>;
   handleSeasonNotesChange: (seasonNumber: number, notes: string) => Promise<void>;
   handleSeasonDatesChange: (seasonNumber: number, startedAt?: number, finishedAt?: number) => Promise<void>;
+  isUpdatingSeasonStatus: boolean;
+  isUpdatingSeasonRating: boolean;
+  isUpdatingSeasonNotes: boolean;
+  isUpdatingSeasonDates: boolean;
 }
 
 // Star Rating Picker Component
 function StarRatingPicker({
   value,
   onChange,
+  disabled = false,
 }: {
   value?: number;
   onChange: (rating: number | undefined) => void;
+  disabled?: boolean;
 }) {
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const displayRating = hoverRating ?? value;
@@ -78,6 +84,8 @@ function StarRatingPicker({
             onMouseEnter={() => setHoverRating(rating)}
             onMouseLeave={() => setHoverRating(null)}
             onClick={() => handleClick(rating)}
+            disabled={disabled}
+            aria-disabled={disabled}
           >
             <Star
               className={cn(
@@ -125,6 +133,10 @@ export function SeasonAccordion({
   handleSeasonRatingChange,
   handleSeasonNotesChange,
   handleSeasonDatesChange,
+  isUpdatingSeasonStatus,
+  isUpdatingSeasonRating,
+  isUpdatingSeasonNotes,
+  isUpdatingSeasonDates,
 }: SeasonAccordionProps) {
   if (!media.seasonData?.length) {
     return (
@@ -186,6 +198,7 @@ export function SeasonAccordion({
                       accent: statusColors.dropped,
                     },
                   ]}
+                  disabled={isUpdatingSeasonStatus}
                 />
                 )}
                 {/* Rating Popover */}
@@ -200,6 +213,7 @@ export function SeasonAccordion({
                           ? "text-amber-500"
                           : "text-muted-foreground/50 hover:text-amber-500"
                       )}
+                      disabled={isUpdatingSeasonRating}
                     >
                       <Star
                         className={cn(
@@ -220,6 +234,7 @@ export function SeasonAccordion({
                       onChange={(rating) =>
                         handleSeasonRatingChange(season.seasonNumber, rating)
                       }
+                      disabled={isUpdatingSeasonRating}
                     />
                   </PopoverContent>
                 </Popover>
@@ -242,6 +257,8 @@ export function SeasonAccordion({
                 onDatesChange={(startedAt, finishedAt) =>
                   handleSeasonDatesChange(season.seasonNumber, startedAt, finishedAt)
                 }
+                isUpdatingSeasonNotes={isUpdatingSeasonNotes}
+                isUpdatingSeasonDates={isUpdatingSeasonDates}
               />
             </AccordionContent>
           </AccordionItem>
