@@ -45,7 +45,6 @@ import {
   Trash,
 } from "lucide-react";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
-import { deleteList } from "@/convex/lists";
 import {
   AlertDialog,
   AlertDialogDescription,
@@ -225,8 +224,16 @@ export default function DashboardPage() {
 
   const handleDeleteList = async () => {
     if (!selectedList) return;
+  
     await deleteList({ listId: selectedList._id });
-    setSelectedListId(null);
+  
+    const remainingLists = lists?.filter(
+      (l) => l._id !== selectedList._id
+    );
+  
+    setSelectedListId(
+      remainingLists?.[0]?._id ?? null
+    );
   };
 
   const handleCreateList = async () => {
@@ -509,14 +516,15 @@ export default function DashboardPage() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete List</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Are you sure you want tos delete this list?
+                                  Are you sure you want to delete this list?
                                   This cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteList}>
-                                  Delete
+                                <AlertDialogAction onClick={handleDeleteList} disabled={isDeletingList}>
+                                  <Trash className="h-3 w-3 mr-1" />
+                                  {isDeletingList ? "Deleting..." : "Delete"}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
