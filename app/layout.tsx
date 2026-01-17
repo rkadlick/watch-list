@@ -5,6 +5,8 @@ import { ConvexClientProvider } from "@/components/ConvexProvider";
 import "./globals.css";
 import { Toaster } from "@/components/ui/Sonner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { validateEnv } from "@/lib/env";
+import { validateServerEnv } from "@/lib/env-check";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,6 +28,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  
+  if (typeof window === "undefined") {
+    // Server-only validation
+    validateServerEnv();
+  }
+
+  // Client-side (browser-exposed NEXT_PUBLIC_*) validation
+  if (process.env.NODE_ENV === "development") {
+    validateEnv();
+  }
+
   return (
     <html lang="en">
 

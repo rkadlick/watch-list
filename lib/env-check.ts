@@ -1,7 +1,8 @@
 /**
- * Server-side environment variable validation
- * Validates all environment variables (including server-only ones)
- * This should be called at app startup
+ * Server-side Environment Validation
+ *
+ * Runs at app startup to ensure all required environment variables
+ * are present and correctly set.
  */
 
 const requiredServerEnvVars = [
@@ -19,33 +20,37 @@ export function validateServerEnv() {
   const missing: string[] = [];
   const warnings: string[] = [];
 
-  // Check required variables
+  // Check required vars
   for (const key of requiredServerEnvVars) {
-    if (!process.env[key]) {
-      missing.push(key);
-    }
+    if (!process.env[key]) missing.push(key);
   }
 
-  // Check optional variables (warn only)
+  // Check optional vars (warn only)
   for (const key of optionalServerEnvVars) {
-    if (!process.env[key]) {
-      warnings.push(key);
-    }
+    if (!process.env[key]) warnings.push(key);
   }
 
   if (missing.length > 0) {
-    const error = new Error(
-      `Missing required environment variables: ${missing.join(", ")}\n` +
-        "Please check your .env file or environment configuration.\n" +
-        "See .env.example for required variables."
-    );
-    console.error(error.message);
-    throw error;
+    const message = `
+❌ Missing required environment variables:
+${missing.map((key) => `  - ${key}`).join("\n")}
+  
+Please add them to your .env file or environment configuration.
+See .env.example for a reference.
+`;
+    console.error(message.trim());
+    throw new Error("Missing required environment variables");
   }
 
-  if (warnings.length > 0) {
+  if (warnings.length > 0 && process.env.NODE_ENV === "development") {
     console.warn(
-      `Optional environment variables not set: ${warnings.join(", ")}`
+      `
+⚠️  Optional environment variables not set:
+${warnings.map((key) => `  - ${key}`).join("\n")}
+`
     );
   }
 }
+
+// Automatically validate on import (optional)
+validateServerEnv();
