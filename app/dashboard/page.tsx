@@ -42,8 +42,21 @@ import {
   Check,
   X as XIcon,
   Share,
+  Trash,
 } from "lucide-react";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
+import { deleteList } from "@/convex/lists";
+import {
+  AlertDialog,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogTrigger,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogFooter,
+} from "@/components/ui/AlertDialog";
 
 type StatusView = "all" | "to_watch" | "watching" | "watched" | "dropped";
 type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
@@ -69,6 +82,10 @@ export default function DashboardPage() {
   const { mutate: updateList, isLoading: isUpdatingList } =
     useMutationWithError(api.lists.updateList, {
       successMessage: "List updated",
+    });
+  const { mutate: deleteList, isLoading: isDeletingList } =
+    useMutationWithError(api.lists.deleteList, {
+      successMessage: "List deleted",
     });
   const [selectedListId, setSelectedListId] = useState<Id<"lists"> | null>(
     null
@@ -206,6 +223,12 @@ export default function DashboardPage() {
     return (member?.role as "admin" | "viewer") ?? null;
   }
 
+  const handleDeleteList = async () => {
+    if (!selectedList) return;
+    await deleteList({ listId: selectedList._id });
+    setSelectedListId(null);
+  };
+
   const handleCreateList = async () => {
     if (!newListName.trim()) return;
 
@@ -256,7 +279,12 @@ export default function DashboardPage() {
         columnClassName="masonry-column flex flex-col gap-4"
       >
         {filteredItems.map((item) => (
-          <MediaCard key={item._id} canEdit={canEdit} listItem={item} size={cardSize} />
+          <MediaCard
+            key={item._id}
+            canEdit={canEdit}
+            listItem={item}
+            size={cardSize}
+          />
         ))}
       </Masonry>
     );
@@ -313,11 +341,10 @@ export default function DashboardPage() {
             {isCreatingList ? "Creating..." : "Create List"}
           </Button>
           {canEdit && (
-          <Button className="w-full" onClick={() => setIsAddModalOpen(true)}>
-            Add Media
-          </Button>
-          )
-          }
+            <Button className="w-full" onClick={() => setIsAddModalOpen(true)}>
+              Add Media
+            </Button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
@@ -325,25 +352,28 @@ export default function DashboardPage() {
             {lists?.map((list) => {
               const listRole = getListRole(list, user?.id);
               return (
-                <Button
+                <button
                   key={list._id}
                   onClick={() => {
                     setSelectedListId(list._id);
                     setIsSidebarOpen(false);
                   }}
-                  className={`w-full rounded-lg border px-3 py-3 text-left transition-colors ${
-                    selectedListId === list._id
-                      ? "border-primary/60 bg-primary/5 text-primary"
-                      : "border-transparent hover:border-border hover:bg-muted/60"
-                  }`}
+                  className={`w-full rounded-lg border px-3 py-3 text-left transition-colors cursor-pointer flex flex-col items-start gap-1
+                ${
+                  selectedListId === list._id
+                    ? "border-primary/60 bg-primary/5 text-primary"
+                    : "border-transparent hover:border-border hover:bg-muted/60"
+                }`}
                 >
-                  <div className="font-medium">{list.name}</div>
+                  <div className="w-full font-medium truncate">{list.name}</div>
+
                   {list.description && (
-                    <div className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                    <div className="w-full text-sm text-muted-foreground line-clamp-2">
                       {list.description}
                     </div>
                   )}
-                  <div className="text-xs text-muted-foreground mt-1 capitalize">
+
+                  <div className="w-full text-xs text-muted-foreground capitalize">
                     {listRole === "creator"
                       ? "Creator"
                       : listRole === "admin"
@@ -352,7 +382,7 @@ export default function DashboardPage() {
                           ? "Viewer"
                           : "Unknown"}
                   </div>
-                </Button>
+                </button>
               );
             })}
           </div>
@@ -463,36 +493,66 @@ export default function DashboardPage() {
                             {selectedList.description}
                           </p>
                         )}
+                        {selectedList.ownerId === user?.id && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="mt-2"
+                              >
+                                <Trash className="h-3 w-3 mr-1" />
+                                Delete List
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete List</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want tos delete this list?
+                                  This cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteList}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                         {canEdit && (
-                          <Button 
-                          size="sm"
-                          variant="ghost"
-                          className="mt-2"
-                          onClick={() => {
-                            setEditingListId(selectedList._id);
-                            setEditListName(selectedList.name);
-                            setEditListDescription(
-                              selectedList.description || ""
-                            );
-                          }}
-                        >
-                          <Edit2 className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="mt-2"
+                              onClick={() => {
+                                setEditingListId(selectedList._id);
+                                setEditListName(selectedList.name);
+                                setEditListDescription(
+                                  selectedList.description || ""
+                                );
+                              }}
+                            >
+                              <Edit2 className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setIsShareListOpen(true);
+                              }}
+                            >
+                              <Share className="h-3 w-3 mr-1" />
+                              Manage Members ({selectedList.members?.length + 1}
+                              )
+                            </Button>
+                          </>
                         )}
                       </>
-                    )}
-                    {canEdit && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setIsShareListOpen(true);
-                        }}
-                      >
-                        <Share className="h-3 w-3 mr-1" />
-                        Manage Members ({selectedList.members?.length + 1})
-                      </Button>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -623,10 +683,7 @@ export default function DashboardPage() {
         onListSelect={(listId) => setSelectedListId(listId)}
       />
 
-      <Dialog
-        open={isCreateListOpen}
-        onOpenChange={setIsCreateListOpen}
-      >
+      <Dialog open={isCreateListOpen} onOpenChange={setIsCreateListOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New List</DialogTitle>
