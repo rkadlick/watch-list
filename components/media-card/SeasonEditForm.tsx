@@ -38,12 +38,12 @@ export function SeasonEditForm({
   const [localNotes, setLocalNotes] = useState(notes);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
 
-  const handleStartedChange = (timestamp?: number) => {
-    onDatesChange(timestamp, finishedAt);
+  const handleStartedChange = (timestamp?: number | null) => {
+    onDatesChange(timestamp ?? undefined, finishedAt);
   };
 
-  const handleFinishedChange = (timestamp?: number) => {
-    onDatesChange(startedAt, timestamp);
+  const handleFinishedChange = (timestamp?: number | null) => {
+    onDatesChange(startedAt, timestamp ?? undefined);
   };
 
   const handleNotesBlur = () => {
@@ -101,32 +101,32 @@ export function SeasonEditForm({
 
       {/* Notes - Click to Edit - Made more distinct */}
       {canEdit && (
-      <div className="border border-border/50 rounded-md bg-muted/30 px-3 py-2">
-        {isEditingNotes ? (
-          <Textarea
-            placeholder={`Notes for Season ${seasonNumber}...`}
-            value={localNotes}
-            onChange={(e) => setLocalNotes(e.target.value)}
-            onBlur={handleNotesBlur}
-            autoFocus
-            disabled={isUpdatingSeasonNotes}
-            className="text-xs min-h-[60px] resize-none bg-background border-0 focus-visible:ring-0 px-2 -mx-2"
-          />
-        ) : notes ? (
-          <button
-            onClick={() => setIsEditingNotes(true)}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-left w-full line-clamp-3"
-          >
-            {notes}
-          </button>
-        ) : (
-          <button
-            onClick={() => setIsEditingNotes(true)}
-            className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
-          >
-            <Plus className="h-3 w-3" />
-            Add note
-          </button>
+        <div className="border border-border/50 rounded-md bg-muted/30 px-3 py-2">
+          {isEditingNotes ? (
+            <Textarea
+              placeholder={`Notes for Season ${seasonNumber}...`}
+              value={localNotes}
+              onChange={(e) => setLocalNotes(e.target.value)}
+              onBlur={handleNotesBlur}
+              autoFocus
+              disabled={isUpdatingSeasonNotes}
+              className="text-xs min-h-[60px] resize-none bg-background border-0 focus-visible:ring-0 px-2 -mx-2"
+            />
+          ) : notes ? (
+            <button
+              onClick={() => setIsEditingNotes(true)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-left w-full line-clamp-3"
+            >
+              {notes}
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsEditingNotes(true)}
+              className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+            >
+              <Plus className="h-3 w-3" />
+              Add note
+            </button>
           )}
         </div>
       )}

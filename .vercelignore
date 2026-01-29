@@ -1,0 +1,30 @@
+# Dependencies
+node_modules
+
+# Testing
+coverage
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Local env files
+.env.local
+.env*.local
+
+# Development files
+.cursor
+.vscode
+.idea
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# ai agents
+/.cursor
+/.agent

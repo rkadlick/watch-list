@@ -6,7 +6,7 @@ import { Moon, Sun, Monitor } from "lucide-react";
 
 type ThemeOption = "light" | "dark" | "system";
 
-const ICONS: Record<ThemeOption, JSX.Element> = {
+const ICONS: Record<ThemeOption, React.ReactNode> = {
   light: <Sun className="h-4 w-4" />,
   dark: <Moon className="h-4 w-4" />,
   system: <Monitor className="h-4 w-4" />,

@@ -38,8 +38,9 @@ yarn-error.log*
 # vercel
 .vercel
 
-# cursor
+# ai agents
 /.cursor
+/.agent
 
 # typescript
 *.tsbuildinfo
