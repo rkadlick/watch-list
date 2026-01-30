@@ -112,5 +112,14 @@ export default defineSchema({
   })
     .index("by_list_id", ["listId"])
     .index("by_list_and_media", ["listId", "mediaId"]),
+
+  // TMDB search cache - stores search results to reduce API calls
+  searchCache: defineTable({
+    query: v.string(), // Normalized search query (lowercase, trimmed)
+    results: v.any(), // TMDB search results array
+    expiresAt: v.number(), // Timestamp when cache entry expires (6 hours)
+  })
+    .index("by_query", ["query"]) // Fast lookup by search query
+    .index("by_expires", ["expiresAt"]), // For cleanup of expired entries
 });
 

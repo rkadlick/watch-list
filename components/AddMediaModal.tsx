@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -50,6 +50,9 @@ export function AddMediaModal({
   );
   const [visibleCount, setVisibleCount] = useState(12);
 
+  // Ref to store the debounce timeout
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const searchTMDB = useAction(api.tmdb.searchTMDB);
   const getOrCreateMedia = useAction(api.media.getOrCreateMedia);
   const { mutate: addListItem, isPending: isAddingToList } =
@@ -61,6 +64,15 @@ export function AddMediaModal({
   useEffect(() => {
     setTargetListId(selectedListId);
   }, [selectedListId]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -81,6 +93,43 @@ export function AddMediaModal({
       setIsSearching(false);
     }
   };
+
+  // Debounced search handler
+  const handleSearchInputChange = useCallback((value: string) => {
+    setSearchQuery(value);
+
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Don't search if query is empty
+    if (!value.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    // Set loading state immediately for better UX
+    setIsSearching(true);
+
+    // Set new timer - search after 500ms of no typing
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await searchTMDB({
+          query: value,
+        });
+
+        setSearchResults(results || []);
+        setVisibleCount(12);
+      } catch {
+        // Intentionally silent — search failure is non-fatal
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500);
+  }, [searchTMDB]);
 
   const handleAddToList = async (listId: Id<"lists">) => {
     if (!selectedMedia || !listId) return;
@@ -158,9 +207,13 @@ export function AddMediaModal({
               <Input
                 placeholder="Search for a movie or TV show..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchInputChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
+                    // Clear debounce timer and search immediately on Enter
+                    if (debounceTimerRef.current) {
+                      clearTimeout(debounceTimerRef.current);
+                    }
                     handleSearch();
                   }
                 }}
@@ -214,11 +267,10 @@ export function AddMediaModal({
                       return (
                         <Card
                           key={item.id}
-                          className={`cursor-pointer transition-all ${
-                            selectedMedia?.id === item.id
-                              ? "ring-2 ring-primary"
-                              : "hover:shadow-md"
-                          }`}
+                          className={`cursor-pointer transition-all ${selectedMedia?.id === item.id
+                            ? "ring-2 ring-primary"
+                            : "hover:shadow-md"
+                            }`}
                           onClick={() => setSelectedMedia(item)}
                         >
                           <CardContent className="p-3 flex flex-col gap-2">
