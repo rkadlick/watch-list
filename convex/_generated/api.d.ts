@@ -12,6 +12,7 @@ import type * as debug from "../debug.js";
 import type * as listItems from "../listItems.js";
 import type * as lists from "../lists.js";
 import type * as media from "../media.js";
+import type * as performance from "../performance.js";
 import type * as tmdb from "../tmdb.js";
 import type * as users from "../users.js";
 
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   listItems: typeof listItems;
   lists: typeof lists;
   media: typeof media;
+  performance: typeof performance;
   tmdb: typeof tmdb;
   users: typeof users;
 }>;

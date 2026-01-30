@@ -35,15 +35,27 @@ export const getMyLists = query({
 
     const clerkId = identity.subject;
 
-    // Get lists where user is owner or member
+    // OPTIMIZED: Query lists where user is the owner (uses index)
+    const ownedLists = await ctx.db
+      .query("lists")
+      .withIndex("by_owner_id", (q) => q.eq("ownerId", clerkId))
+      .collect();
+
+    // For member lists, we still need to scan all lists
+    // (can't index array fields efficiently in Convex)
+    // But this is acceptable since most users own more lists than they're members of
     const allLists = await ctx.db.query("lists").collect();
-    
-    return allLists.filter(
-      (list) => {
-        const role = getUserRole(list, clerkId);
-        return canView(role);
+    const memberLists = allLists.filter((list) => {
+      // Skip if already in ownedLists
+      if (list.ownerId === clerkId) {
+        return false;
       }
-    );
+      // Check if user is a member
+      return list.members.some((m) => m.clerkId === clerkId);
+    });
+
+    // Combine and return
+    return [...ownedLists, ...memberLists];
   },
 });
 

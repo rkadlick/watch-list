@@ -28,7 +28,9 @@ export default defineSchema({
       )
     ),
     updatedAt: v.number(), // Timestamp - updated on list modifications
-  }),
+  })
+    .index("by_owner_id", ["ownerId"]) // Critical: Find lists owned by a user
+    .index("by_updated_at", ["updatedAt"]), // Optional: Sort lists by recent activity
 
   media: defineTable({
     tmdbId: v.number(),
@@ -111,7 +113,8 @@ export default defineSchema({
     ),
   })
     .index("by_list_id", ["listId"])
-    .index("by_list_and_media", ["listId", "mediaId"]),
+    .index("by_list_and_media", ["listId", "mediaId"])
+    .index("by_media_id", ["mediaId"]), // Optional: Find all lists containing a media item
 
   // TMDB search cache - stores search results to reduce API calls
   searchCache: defineTable({
