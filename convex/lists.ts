@@ -273,43 +273,51 @@ export const getListMembers = query({
         )
         .unique();
   
-      if (!owner) {
-        throw new Error("Owner not found");
-      }
-  
-      // Fetch members
-      const members = await Promise.all(
-        list.members.map(async (member) => {
-          const user = await ctx.db
-            .query("users")
-            .withIndex("by_clerk_id", (q) =>
-              q.eq("clerkId", member.clerkId)
-            )
-            .unique();
-  
-          if (!user) {
-            return null;
-          }
-  
-          return {
-            clerkId: user.clerkId,
-            email: user.email,
-            name: user.name,
-            avatarUrl: user.avatarUrl,
-            role: member.role,
-          };
-        })
-      );
-
-    return {
-      owner: {
+      // Handle missing owner gracefully (shouldn't happen, but be defensive)
+      const ownerData = owner ? {
         clerkId: owner.clerkId,
         email: owner.email,
         name: owner.name,
         avatarUrl: owner.avatarUrl,
-        role: "owner",
-      },
-      members: members,
+        role: "owner" as const,
+      } : {
+        clerkId: list.ownerId,
+        email: "unknown@placeholder.local",
+        name: "Unknown User",
+        avatarUrl: undefined,
+        role: "owner" as const,
+      };
+  
+      // Fetch members - filter out users who haven't logged in yet
+      const memberPromises = list.members.map(async (member) => {
+        const user = await ctx.db
+          .query("users")
+          .withIndex("by_clerk_id", (q) =>
+            q.eq("clerkId", member.clerkId)
+          )
+          .unique();
+  
+        if (!user) {
+          // User hasn't logged in yet - hide them from member list
+          return null;
+        }
+  
+        return {
+          clerkId: user.clerkId,
+          email: user.email,
+          name: user.name,
+          avatarUrl: user.avatarUrl,
+          role: member.role,
+        };
+      });
+
+      const allMembers = await Promise.all(memberPromises);
+      // Filter out null values (unsynced users)
+      const syncedMembers = allMembers.filter((m) => m !== null);
+
+    return {
+      owner: ownerData,
+      members: syncedMembers,
     };
   }
 });

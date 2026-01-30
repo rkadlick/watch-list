@@ -107,20 +107,38 @@ export default function DashboardPage() {
   const [editListDescription, setEditListDescription] = useState("");
   const [isShareListOpen, setIsShareListOpen] = useState(false);
 
-  // Sync user when they log in
+  // Sync user when they log in - ensure this completes before queries run
   useEffect(() => {
     if (isLoaded && user) {
-      syncUser({
-        clerkId: user.id,
-        email: user.emailAddresses[0]?.emailAddress || "",
-        name: user.fullName || undefined,
-        avatarUrl: user.imageUrl || undefined,
-      }).catch((error) => {
-        // Silent fail for user sync - not critical for UX
-        if (process.env.NODE_ENV === "development") {
-          console.error("User sync failed:", error);
-        }
-      });
+      // Get email with fallback
+      const email = user.emailAddresses[0]?.emailAddress;
+
+      // Only sync if we have a valid email
+      if (email && email.trim()) {
+        syncUser({
+          clerkId: user.id,
+          email,
+          name: user.fullName || undefined,
+          avatarUrl: user.imageUrl || undefined,
+        }).catch((error) => {
+          // Silent fail for user sync - not critical for UX
+          if (process.env.NODE_ENV === "development") {
+            console.error("User sync failed:", error);
+          }
+        });
+      } else {
+        // No email - sync with placeholder
+        syncUser({
+          clerkId: user.id,
+          email: `${user.id}@placeholder.local`,
+          name: user.fullName || undefined,
+          avatarUrl: user.imageUrl || undefined,
+        }).catch((error) => {
+          if (process.env.NODE_ENV === "development") {
+            console.error("User sync failed:", error);
+          }
+        });
+      }
     }
   }, [isLoaded, user, syncUser]);
 
@@ -322,9 +340,8 @@ export default function DashboardPage() {
     <div className="flex min-h-screen bg-background text-foreground">
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-30 w-72 border-r bg-sidebar text-sidebar-foreground transition-transform duration-200 md:static md:translate-x-0 ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-30 w-72 border-r bg-sidebar text-sidebar-foreground transition-transform duration-200 md:static md:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <div className="flex items-center justify-between border-b px-4 py-4">
           <div>
@@ -378,11 +395,10 @@ export default function DashboardPage() {
                     setIsSidebarOpen(false);
                   }}
                   className={`w-full rounded-lg border px-3 py-3 text-left transition-colors cursor-pointer flex flex-col items-start gap-1
-                ${
-                  selectedListId === list._id
-                    ? "border-primary/60 bg-primary/5 text-primary"
-                    : "border-transparent hover:border-border hover:bg-muted/60"
-                }`}
+                ${selectedListId === list._id
+                      ? "border-primary/60 bg-primary/5 text-primary"
+                      : "border-transparent hover:border-border hover:bg-muted/60"
+                    }`}
                 >
                   <div className="w-full font-medium truncate">{list.name}</div>
 
@@ -617,20 +633,18 @@ export default function DashboardPage() {
                     <Button
                       key={chip.value}
                       variant="outline"
-                      className={`rounded-full px-3 py-1 border-2 transition-colors ${
-                        activeView === chip.value
+                      className={`rounded-full px-3 py-1 border-2 transition-colors ${activeView === chip.value
                           ? "border-primary bg-primary text-white hover:bg-primary/85 hover:border-primary hover:text-white dark:border-primary/80 dark:bg-primary/80 dark:hover:bg-primary/70 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
                           : "border-border bg-background text-foreground hover:bg-muted/70 hover:border-border"
-                      }`}
+                        }`}
                       onClick={() => setActiveView(chip.value)}
                     >
                       <span>{chip.label}</span>
                       <span
-                        className={`ml-2 rounded-full border px-2 text-xs ${
-                          activeView === chip.value
+                        className={`ml-2 rounded-full border px-2 text-xs ${activeView === chip.value
                             ? "border-white/70 bg-white/25 text-white dark:border-white/30 dark:bg-white/15"
                             : "border-border bg-secondary text-foreground"
-                        }`}
+                          }`}
                       >
                         {statusCounts[chip.value]}
                       </span>
