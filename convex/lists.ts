@@ -26,8 +26,10 @@ function canView(role: "creator" | "admin" | "viewer" | null): boolean {
 }
 
 export const getMyLists = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    paginationOpts: v.any(),
+  },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Not authenticated");
@@ -35,27 +37,41 @@ export const getMyLists = query({
 
     const clerkId = identity.subject;
 
-    // OPTIMIZED: Query lists where user is the owner (uses index)
-    const ownedLists = await ctx.db
+    // OPTIMIZED: Query lists where user is the owner (uses index, paginated)
+    const ownedListsResult = await ctx.db
       .query("lists")
       .withIndex("by_owner_id", (q) => q.eq("ownerId", clerkId))
-      .collect();
+      .paginate(args.paginationOpts ?? { numItems: 50 });
 
-    // For member lists, we still need to scan all lists
-    // (can't index array fields efficiently in Convex)
-    // But this is acceptable since most users own more lists than they're members of
-    const allLists = await ctx.db.query("lists").collect();
-    const memberLists = allLists.filter((list) => {
-      // Skip if already in ownedLists
-      if (list.ownerId === clerkId) {
-        return false;
-      }
-      // Check if user is a member
-      return list.members.some((m) => m.clerkId === clerkId);
-    });
+    // For member lists, we need to scan (can't index array fields)
+    // Only fetch if we have room in the page
+    const remainingSlots = 50 - ownedListsResult.page.length;
+    let memberLists: typeof ownedListsResult.page = [];
+    
+    if (remainingSlots > 0) {
+      // Get all lists to find member lists (this is a limitation of Convex)
+      // In practice, most users are members of few lists, so this is acceptable
+      const allLists = await ctx.db.query("lists").collect();
+      memberLists = allLists
+        .filter((list) => {
+          // Skip if user is the owner
+          if (list.ownerId === clerkId) {
+            return false;
+          }
+          // Check if user is a member
+          return list.members.some((m) => m.clerkId === clerkId);
+        })
+        .slice(0, remainingSlots); // Only take what we need
+    }
 
-    // Combine and return
-    return [...ownedLists, ...memberLists];
+    // Combine owned and member lists
+    const combinedLists = [...ownedListsResult.page, ...memberLists];
+
+    return {
+      page: combinedLists,
+      continueCursor: ownedListsResult.continueCursor,
+      isDone: ownedListsResult.isDone && memberLists.length === 0,
+    };
   },
 });
 

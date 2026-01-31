@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Masonry from "react-masonry-css";
 import { Button } from "@/components/ui/Button";
@@ -74,7 +74,18 @@ const VIEW_CHIPS: { value: StatusView; label: string }[] = [
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
-  const lists = useQuery(api.lists.getMyLists, isLoaded ? undefined : "skip");
+
+  // Use paginated query for lists (50 per page)
+  const {
+    results: lists,
+    status: listsStatus,
+    loadMore: loadMoreLists,
+  } = usePaginatedQuery(
+    api.lists.getMyLists,
+    isLoaded ? {} : "skip",
+    { initialNumItems: 50 }
+  );
+
   const syncUser = useMutation(api.users.syncUser);
   const { mutate: createList, isPending: isCreatingList } =
     useMutationWithError(api.lists.createList, {
@@ -151,9 +162,15 @@ export default function DashboardPage() {
     }
   }, [lists, selectedListId]);
 
-  const listItems = useQuery(
+  // Use paginated query for list items (50 per page)
+  const {
+    results: listItems,
+    status: listItemsStatus,
+    loadMore: loadMoreItems,
+  } = usePaginatedQuery(
     api.listItems.getListItems,
-    selectedListId ? { listId: selectedListId } : "skip"
+    selectedListId ? { listId: selectedListId } : "skip",
+    { initialNumItems: 50 }
   );
 
   const selectedList = lists?.find((list) => list._id === selectedListId);
@@ -420,6 +437,26 @@ export default function DashboardPage() {
                 </button>
               );
             })}
+
+            {/* Load More button for lists */}
+            {listsStatus === "CanLoadMore" && (
+              <div className="mt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => loadMoreLists(50)}
+                  className="w-full"
+                  size="sm"
+                >
+                  Load More Lists
+                </Button>
+              </div>
+            )}
+
+            {listsStatus === "LoadingMore" && (
+              <div className="mt-2 text-center text-sm text-muted-foreground">
+                Loading more lists...
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -634,16 +671,16 @@ export default function DashboardPage() {
                       key={chip.value}
                       variant="outline"
                       className={`rounded-full px-3 py-1 border-2 transition-colors ${activeView === chip.value
-                          ? "border-primary bg-primary text-white hover:bg-primary/85 hover:border-primary hover:text-white dark:border-primary/80 dark:bg-primary/80 dark:hover:bg-primary/70 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
-                          : "border-border bg-background text-foreground hover:bg-muted/70 hover:border-border"
+                        ? "border-primary bg-primary text-white hover:bg-primary/85 hover:border-primary hover:text-white dark:border-primary/80 dark:bg-primary/80 dark:hover:bg-primary/70 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
+                        : "border-border bg-background text-foreground hover:bg-muted/70 hover:border-border"
                         }`}
                       onClick={() => setActiveView(chip.value)}
                     >
                       <span>{chip.label}</span>
                       <span
                         className={`ml-2 rounded-full border px-2 text-xs ${activeView === chip.value
-                            ? "border-white/70 bg-white/25 text-white dark:border-white/30 dark:bg-white/15"
-                            : "border-border bg-secondary text-foreground"
+                          ? "border-white/70 bg-white/25 text-white dark:border-white/30 dark:bg-white/15"
+                          : "border-border bg-secondary text-foreground"
                           }`}
                       >
                         {statusCounts[chip.value]}
@@ -700,6 +737,27 @@ export default function DashboardPage() {
             {/* Scrollable card container */}
             <div className="flex-1 overflow-y-auto px-4 py-5 md:px-6">
               {renderItems()}
+
+              {/* Load More button for list items */}
+              {listItemsStatus === "CanLoadMore" && (
+                <div className="flex justify-center mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={() => loadMoreItems(50)}
+                    className="w-full max-w-md"
+                  >
+                    Load More Items
+                  </Button>
+                </div>
+              )}
+
+              {listItemsStatus === "LoadingMore" && (
+                <div className="flex justify-center mt-6">
+                  <div className="text-sm text-muted-foreground">
+                    Loading more items...
+                  </div>
+                </div>
+              )}
             </div>
           </>
         ) : (
