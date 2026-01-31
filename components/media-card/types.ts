@@ -17,6 +17,7 @@ export interface SeasonProgress {
 export interface MediaCardProps {
   canEdit: boolean;
   size?: CardSize;
+  priority?: boolean; // For priority image loading
   listItem: {
     _id: Id<"listItems">;
     _creationTime: number; // Convex auto-provides this

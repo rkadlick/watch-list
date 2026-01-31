@@ -100,10 +100,10 @@ export const createMedia = internalMutation({
       type: args.type,
       title: tmdbData.title || tmdbData.name,
       posterUrl: tmdbData.poster_path
-        ? `https://image.tmdb.org/t/p/w500${tmdbData.poster_path}`
+        ? `https://image.tmdb.org/t/p/w342${tmdbData.poster_path}` // Optimized: 342px instead of 500px
         : undefined,
       backdropUrl: tmdbData.backdrop_path
-        ? `https://image.tmdb.org/t/p/w1280${tmdbData.backdrop_path}`
+        ? `https://image.tmdb.org/t/p/w780${tmdbData.backdrop_path}` // Optimized: 780px instead of 1280px
         : undefined,
       releaseDate:
         tmdbData.release_date || tmdbData.first_air_date || undefined,

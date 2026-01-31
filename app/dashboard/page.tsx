@@ -333,12 +333,13 @@ export default function DashboardPage() {
         className="flex gap-4"
         columnClassName="masonry-column flex flex-col gap-4"
       >
-        {filteredItems.map((item) => (
+        {filteredItems.map((item, index) => (
           <MediaCard
             key={item._id}
             canEdit={canEdit}
             listItem={item}
             size={cardSize}
+            priority={index < 8} // Priority load first 8 items
           />
         ))}
       </Masonry>

@@ -8,7 +8,7 @@ import { MediaCardSmall } from "./MediaCardSmall";
 import { MediaCardRegular } from "./MediaCardRegular";
 import { formatDateDisplay } from "@/lib/dates";
 
-export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps) {
+export function MediaCard({ canEdit, listItem, size = "small", priority = false }: MediaCardProps) {
   // Mutations
   const {
     mutate: updateStatus,
@@ -37,7 +37,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
       successMessage: "Removed from list",
     }
   );
-    const {
+  const {
     mutate: updateRating,
     isPending: isUpdatingRating,
   } = useMutationWithError(
@@ -200,6 +200,7 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
   const commonProps = {
     canEdit,
     listItem,
+    priority,
     handleStatusChange,
     handleDelete,
     showSeasons,
@@ -221,18 +222,18 @@ export function MediaCard({ canEdit, listItem, size = "small" }: MediaCardProps)
     handleSeasonDatesChange,
     activeTab,
     setActiveTab,
-      // NEW loading flags
-  isUpdatingStatus,
-  isDeleting,
-  isUpdatingRating,
-  isUpdatingPriority,
-  isUpdatingNotes,
-  isUpdatingTags,
-  isUpdatingDates,
-  isUpdatingSeasonStatus,
-  isUpdatingSeasonRating,
-  isUpdatingSeasonNotes,
-  isUpdatingSeasonDates,
+    // NEW loading flags
+    isUpdatingStatus,
+    isDeleting,
+    isUpdatingRating,
+    isUpdatingPriority,
+    isUpdatingNotes,
+    isUpdatingTags,
+    isUpdatingDates,
+    isUpdatingSeasonStatus,
+    isUpdatingSeasonRating,
+    isUpdatingSeasonNotes,
+    isUpdatingSeasonDates,
   };
 
   if (size === "small") {

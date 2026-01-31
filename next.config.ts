@@ -10,6 +10,14 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
     ],
+    // Enable modern image formats (WebP/AVIF) for 30-50% smaller files
+    formats: ["image/avif", "image/webp"],
+    // Optimized device sizes for responsive images
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    // Icon and thumbnail sizes
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    // Cache TMDB images for 1 year (they don't change)
+    minimumCacheTTL: 31536000,
   },
 };
 

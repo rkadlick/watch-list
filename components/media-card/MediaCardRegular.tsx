@@ -24,9 +24,11 @@ import { UserRatingPopover } from "./UserRatingPopover";
 import { PrioritySelector } from "./PrioritySelector";
 import { TrackingForm } from "./TrackingForm";
 import { MediaCardProps, MediaCardInnerProps, StatusValue, statusColors, statusLabels } from "./types";
+import { getMediaBlurPlaceholder } from "@/lib/image-utils";
 
 interface MediaCardRegularComponentProps extends MediaCardInnerProps {
   size?: MediaCardProps["size"];
+  priority?: boolean; // For priority loading
 }
 
 export function MediaCardRegular(props: MediaCardRegularComponentProps) {
@@ -34,6 +36,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
     listItem,
     canEdit,
     size = "normal",
+    priority = false,
     handleStatusChange,
     handleDelete,
     showSeasons,
@@ -69,25 +72,25 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
     isUpdatingSeasonDates,
   } = props;
 
-  const { media, status, rating, priority, tags, startedAt, finishedAt, notes, _creationTime } = listItem;
+  const { media, status, rating, priority: itemPriority, tags, startedAt, finishedAt, notes, _creationTime } = listItem;
   if (!media) return null;
 
   const config =
     size === "large"
       ? {
-          titleSize: "text-xl",
-          textSize: "text-base",
-          gap: "gap-4",
-          iconSize: "h-5 w-5",
-          badgeSize: "text-base",
-        }
+        titleSize: "text-xl",
+        textSize: "text-base",
+        gap: "gap-4",
+        iconSize: "h-5 w-5",
+        badgeSize: "text-base",
+      }
       : {
-          titleSize: "text-lg",
-          textSize: "text-sm",
-          gap: "gap-3",
-          iconSize: "h-4 w-4",
-          badgeSize: "text-sm",
-        };
+        titleSize: "text-lg",
+        textSize: "text-sm",
+        gap: "gap-3",
+        iconSize: "h-4 w-4",
+        badgeSize: "text-sm",
+      };
 
   // Format "Added" date - show exact date
   const formatAddedDate = (timestamp: number) => {
@@ -130,7 +133,10 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
               alt={media.title}
               fill
               className="object-contain p-2"
-              sizes={size === "large" ? "160px" : "120px"}
+              sizes="(max-width: 640px) 100px, (max-width: 1024px) 120px, (max-width: 1536px) 140px, 160px"
+              placeholder="blur"
+              blurDataURL={getMediaBlurPlaceholder(media.type)}
+              priority={priority}
             />
           </div>
         )}
@@ -149,32 +155,32 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
             </div>
 
             {canEdit && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`${size === "large" ? "h-8 w-8" : "h-7 w-7"} text-muted-foreground hover:text-red-600 flex-shrink-0 cursor-pointer`}
-                  disabled={isDeleting}
-                >
-                  <Trash2 className={size === "large" ? "h-5 w-5" : "h-4 w-4"} />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Remove from list?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to remove &ldquo;{media.title}&rdquo;? This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`${size === "large" ? "h-8 w-8" : "h-7 w-7"} text-muted-foreground hover:text-red-600 flex-shrink-0 cursor-pointer`}
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className={size === "large" ? "h-5 w-5" : "h-4 w-4"} />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove from list?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to remove &ldquo;{media.title}&rdquo;? This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                      {isDeleting ? "Deleting..." : "Delete"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
 
@@ -201,11 +207,11 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
               {/* User Rating (clickable star) */}
               {canEdit && (
                 <UserRatingPopover
-                rating={rating}
-                onRatingChange={handleRatingChange}
-                size={size === "large" ? "md" : "sm"}
-                disabled={isUpdatingRating}
-              />
+                  rating={rating}
+                  onRatingChange={handleRatingChange}
+                  size={size === "large" ? "md" : "sm"}
+                  disabled={isUpdatingRating}
+                />
               )}
 
               {/* TMDB Score */}
@@ -213,12 +219,12 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
 
               {/* Priority (clickable selector) */}
               {canEdit && (
-              <PrioritySelector
-                priority={priority}
-                onPriorityChange={handlePriorityChange}
-                size={size === "large" ? "md" : "sm"}
-                disabled={isUpdatingPriority}
-              />
+                <PrioritySelector
+                  priority={itemPriority}
+                  onPriorityChange={handlePriorityChange}
+                  size={size === "large" ? "md" : "sm"}
+                  disabled={isUpdatingPriority}
+                />
               )}
             </div>
 
@@ -270,9 +276,8 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
             {/* Notes preview */}
             {notes && (
               <div
-                className={`${config.textSize} text-muted-foreground/60 italic ${
-                  size === "large" ? "line-clamp-3" : "line-clamp-2"
-                }`}
+                className={`${config.textSize} text-muted-foreground/60 italic ${size === "large" ? "line-clamp-3" : "line-clamp-2"
+                  }`}
               >
                 &ldquo;{notes}&rdquo;
               </div>

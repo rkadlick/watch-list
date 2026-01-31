@@ -25,11 +25,17 @@ import { PrioritySelector } from "./PrioritySelector";
 import { TrackingForm } from "./TrackingForm";
 import { MediaCardInnerProps, StatusValue, statusColors, statusLabels } from "./types";
 import { useState } from "react";
+import { getMediaBlurPlaceholder } from "@/lib/image-utils";
 
-export function MediaCardSmall(props: MediaCardInnerProps) {
+interface MediaCardSmallProps extends MediaCardInnerProps {
+  priority?: boolean; // For priority loading
+}
+
+export function MediaCardSmall(props: MediaCardSmallProps) {
   const {
     listItem,
     canEdit,
+    priority = false,
     handleStatusChange,
     handleDelete,
     showSeasons,
@@ -65,7 +71,7 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
     isUpdatingSeasonDates,
   } = props;
 
-  const { media, status, rating, priority, tags, startedAt, finishedAt, notes, _creationTime } = listItem;
+  const { media, status, rating, priority: itemPriority, tags, startedAt, finishedAt, notes, _creationTime } = listItem;
 
   const [showAllProviders, setShowAllProviders] = useState(false);
   if (!media) return null;
@@ -118,7 +124,10 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
               alt={media.title}
               fill
               className="object-cover"
-              sizes="80px"
+              sizes="(max-width: 640px) 64px, 80px"
+              placeholder="blur"
+              blurDataURL={getMediaBlurPlaceholder(media.type)}
+              priority={priority}
             />
           </div>
         )}
@@ -136,32 +145,32 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
               </div>
             </div>
             {canEdit && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-red-600 flex-shrink-0 cursor-pointer"
-                  disabled={isDeleting}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Remove from list?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to remove &ldquo;{media.title}&rdquo;? This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-red-600 flex-shrink-0 cursor-pointer"
+                    disabled={isDeleting}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove from list?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to remove &ldquo;{media.title}&rdquo;? This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                      {isDeleting ? "Deleting..." : "Delete"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
 
@@ -177,31 +186,31 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                   accent: statusColors[value as StatusValue],
                 }))}
                 disabled={isUpdatingStatus}
-                />
+              />
             ) : (
               <Badge className={`${statusColors[status]} ${config.badgeSize}`}>
                 {statusLabels[status]}
               </Badge>
             )}
             {canEdit && (
-            <PrioritySelector
-              priority={priority}
-              onPriorityChange={handlePriorityChange}
-              size="sm"
-              disabled={isUpdatingPriority}
-            />
+              <PrioritySelector
+                priority={itemPriority}
+                onPriorityChange={handlePriorityChange}
+                size="sm"
+                disabled={isUpdatingPriority}
+              />
             )}
-              </div>
+          </div>
 
           {/* ROW 2: Ratings (User + TMDB) */}
           <div className="flex items-center gap-3">
             {canEdit && (
-            <UserRatingPopover
-              rating={rating}
-              onRatingChange={handleRatingChange}
-              size="sm"
-              disabled={isUpdatingRating}
-            />
+              <UserRatingPopover
+                rating={rating}
+                onRatingChange={handleRatingChange}
+                size="sm"
+                disabled={isUpdatingRating}
+              />
             )}
             {media.voteAverage && <RatingCircle score={media.voteAverage} size={36} />}
           </div>
@@ -211,8 +220,8 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <PlayCircle className="h-4 w-4 flex-shrink-0" />
               <div className="flex items-center gap-1 flex-wrap">
-      {media.watchProviders
-        .sort((a, b) => a.displayPriority - b.displayPriority)
+                {media.watchProviders
+                  .sort((a, b) => a.displayPriority - b.displayPriority)
                   .slice(0, showAllProviders ? undefined : 2)
                   .map((p, i) => (
                     <span key={p.providerId}>
@@ -230,8 +239,8 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
                   </Badge>
                 )}
               </div>
-    </div>
-  )}
+            </div>
+          )}
 
           {/* ROW 3.5: Date (Watched for movies, Started for shows) */}
           {(media.type === "movie" && finishedAt) || (media.type === "tv" && startedAt) ? (
@@ -279,15 +288,15 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
         <CardContent className="pt-0 pb-2 px-3">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 h-8 bg-muted/50 p-0.5 rounded-md">
-              <TabsTrigger 
-                value="seasons" 
+              <TabsTrigger
+                value="seasons"
                 className="text-xs gap-1.5 rounded data-[state=active]:bg-background data-[state=active]:shadow-sm"
               >
                 <Tv className="h-3.5 w-3.5" />
                 Seasons
               </TabsTrigger>
-              <TabsTrigger 
-                value="tracking" 
+              <TabsTrigger
+                value="tracking"
                 className="text-xs gap-1.5 rounded data-[state=active]:bg-background data-[state=active]:shadow-sm"
               >
                 <FileText className="h-3.5 w-3.5" />
@@ -296,19 +305,19 @@ export function MediaCardSmall(props: MediaCardInnerProps) {
             </TabsList>
 
             <TabsContent value="seasons" className="mt-3">
-          <SeasonAccordion
-            canEdit={canEdit}
-            showSeasons={showSeasons}
-            setShowSeasons={setShowSeasons}
-            openSeason={openSeason}
-            setOpenSeason={setOpenSeason}
-            media={media}
-            listItem={listItem}
-            config={config}
-            handleSeasonStatusChange={handleSeasonStatusChange}
-            getSeasonStatus={getSeasonStatus}
+              <SeasonAccordion
+                canEdit={canEdit}
+                showSeasons={showSeasons}
+                setShowSeasons={setShowSeasons}
+                openSeason={openSeason}
+                setOpenSeason={setOpenSeason}
+                media={media}
+                listItem={listItem}
+                config={config}
+                handleSeasonStatusChange={handleSeasonStatusChange}
+                getSeasonStatus={getSeasonStatus}
                 getSeasonProgress={getSeasonProgress}
-            formatDate={formatDate}
+                formatDate={formatDate}
                 handleSeasonRatingChange={handleSeasonRatingChange}
                 handleSeasonNotesChange={handleSeasonNotesChange}
                 handleSeasonDatesChange={handleSeasonDatesChange}
