@@ -77,16 +77,12 @@ const VIEW_CHIPS: { value: StatusView; label: string }[] = [
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
 
-  // Use paginated query for lists (50 per page)
-  const {
-    results: lists,
-    status: listsStatus,
-    loadMore: loadMoreLists,
-  } = usePaginatedQuery(
+  // Get all lists (owned + member)
+  const lists = useQuery(
     api.lists.getMyLists,
-    isLoaded ? {} : "skip",
-    { initialNumItems: 50 }
+    isLoaded ? {} : "skip"
   );
+
 
   const convex = useConvex();
   const syncUser = useMutation(api.users.syncUser);
@@ -165,16 +161,12 @@ export default function DashboardPage() {
     }
   }, [lists, selectedListId]);
 
-  // Use paginated query for list items (50 per page)
-  const {
-    results: listItems,
-    status: listItemsStatus,
-    loadMore: loadMoreItems,
-  } = usePaginatedQuery(
+  // Get list items
+  const listItems = useQuery(
     api.listItems.getListItems,
-    selectedListId ? { listId: selectedListId } : "skip",
-    { initialNumItems: 50 }
+    selectedListId ? { listId: selectedListId } : "skip"
   );
+
 
   const selectedList = lists?.find((list) => list._id === selectedListId);
   const currentSort = selectedListId
@@ -461,26 +453,6 @@ export default function DashboardPage() {
                 </button>
               );
             })}
-
-            {/* Load More button for lists */}
-            {listsStatus === "CanLoadMore" && (
-              <div className="mt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => loadMoreLists(50)}
-                  className="w-full"
-                  size="sm"
-                >
-                  Load More Lists
-                </Button>
-              </div>
-            )}
-
-            {listsStatus === "LoadingMore" && (
-              <div className="mt-2 text-center text-sm text-muted-foreground">
-                Loading more lists...
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -788,27 +760,6 @@ export default function DashboardPage() {
             {/* Scrollable card container */}
             <div className="flex-1 overflow-y-auto px-4 py-5 md:px-6">
               {renderItems()}
-
-              {/* Load More button for list items */}
-              {listItemsStatus === "CanLoadMore" && (
-                <div className="flex justify-center mt-6">
-                  <Button
-                    variant="outline"
-                    onClick={() => loadMoreItems(50)}
-                    className="w-full max-w-md"
-                  >
-                    Load More Items
-                  </Button>
-                </div>
-              )}
-
-              {listItemsStatus === "LoadingMore" && (
-                <div className="flex justify-center mt-6">
-                  <div className="text-sm text-muted-foreground">
-                    Loading more items...
-                  </div>
-                </div>
-              )}
             </div>
           </>
         ) : (

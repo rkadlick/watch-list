@@ -29,7 +29,6 @@ function canView(role: "creator" | "admin" | "viewer" | null): boolean {
 export const getListItems = query({
   args: {
     listId: v.id("lists"),
-    paginationOpts: v.any(),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -50,15 +49,15 @@ export const getListItems = query({
       throw new Error("Not authorized to access this list");
     }
 
-    // Get paginated items for this list (50 items per page)
-    const result = await ctx.db
+    // Get all items for this list
+    const items = await ctx.db
       .query("listItems")
       .withIndex("by_list_id", (q) => q.eq("listId", args.listId))
-      .paginate(args.paginationOpts ?? { numItems: 50 });
+      .collect();
 
     // Fetch media details for each item
     const itemsWithMedia = await Promise.all(
-      result.page.map(async (item) => {
+      items.map(async (item) => {
         const media = await ctx.db.get(item.mediaId);
         return {
           ...item,
@@ -67,10 +66,7 @@ export const getListItems = query({
       })
     );
 
-    return {
-      ...result,
-      page: itemsWithMedia,
-    };
+    return itemsWithMedia;
   },
 });
 
