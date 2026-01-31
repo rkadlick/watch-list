@@ -243,6 +243,10 @@ export const updateSeasonStatus = mutation({
       throw new Error("This function is only for TV shows");
     }
 
+    // Validate season number
+    const { validateSeasonNumber } = await import("./validation");
+    validateSeasonNumber(args.seasonNumber);
+
     // Handle switching "watching" season — only one allowed at a time
     let currentProgress = listItem.seasonProgress || [];
 
@@ -382,13 +386,12 @@ export const updateRating = mutation({
       throw new Error("Not authorized to update this item");
     }
 
-    // Validate rating range if provided
-    if (args.rating !== undefined && (args.rating < 1 || args.rating > 10)) {
-      throw new Error("Rating must be between 1 and 10");
-    }
+    // Validate rating
+    const { validateRating } = await import("./validation");
+    const validatedRating = validateRating(args.rating, "Rating");
 
     await ctx.db.patch(args.listItemId, {
-      rating: args.rating,
+      rating: validatedRating,
     });
 
     await ctx.db.patch(listItem.listId, {
@@ -425,8 +428,16 @@ export const updateNotes = mutation({
       throw new Error("Not authorized to update this item");
     }
 
+    // Validate and sanitize notes
+    const { validateString, LIMITS } = await import("./validation");
+    const validatedNotes = validateString(args.notes, {
+      fieldName: "Notes",
+      required: false,
+      maxLength: LIMITS.NOTES_MAX,
+    });
+
     await ctx.db.patch(args.listItemId, {
-      notes: args.notes && args.notes.trim() ? args.notes : undefined,
+      notes: validatedNotes,
     });
 
     await ctx.db.patch(listItem.listId, {
@@ -503,13 +514,12 @@ export const updateTags = mutation({
       throw new Error("Not authorized to update this item");
     }
 
-    // Filter out empty tags
-    const cleanedTags = args.tags
-      ? args.tags.filter((tag) => tag.trim().length > 0)
-      : undefined;
+    // Validate and sanitize tags
+    const { validateTags } = await import("./validation");
+    const validatedTags = validateTags(args.tags);
 
     await ctx.db.patch(args.listItemId, {
-      tags: cleanedTags && cleanedTags.length > 0 ? cleanedTags : undefined,
+      tags: validatedTags,
     });
 
     await ctx.db.patch(listItem.listId, {
@@ -552,6 +562,7 @@ export const updateDates = mutation({
       startedAt?: number | undefined;
       finishedAt?: number | undefined;
     } = {};
+    
     // If startedAt is explicitly passed (not undefined), update it
     // null means clear it (set to undefined in DB), number means set the value
     if (args.startedAt !== undefined) {
@@ -560,6 +571,14 @@ export const updateDates = mutation({
     if (args.finishedAt !== undefined) {
       updates.finishedAt = args.finishedAt === null ? undefined : args.finishedAt;
     }
+
+    // Validate date logic
+    const { validateDates } = await import("./validation");
+    validateDates({
+      startedAt: updates.startedAt !== undefined ? updates.startedAt : listItem.startedAt,
+      finishedAt: updates.finishedAt !== undefined ? updates.finishedAt : listItem.finishedAt,
+      allowFuture: false,
+    });
 
     await ctx.db.patch(args.listItemId, updates);
 
@@ -603,10 +622,10 @@ export const updateSeasonRating = mutation({
       throw new Error("This function is only for TV shows");
     }
 
-    // Validate rating range if provided
-    if (args.rating !== undefined && (args.rating < 1 || args.rating > 10)) {
-      throw new Error("Rating must be between 1 and 10");
-    }
+    // Validate season number and rating
+    const { validateSeasonNumber, validateRating } = await import("./validation");
+    validateSeasonNumber(args.seasonNumber);
+    const validatedRating = validateRating(args.rating, "Season rating");
 
     const currentProgress = listItem.seasonProgress || [];
     const seasonIndex = currentProgress.findIndex(
@@ -618,7 +637,7 @@ export const updateSeasonRating = mutation({
       newProgress = [...currentProgress];
       newProgress[seasonIndex] = {
         ...newProgress[seasonIndex],
-        rating: args.rating,
+        rating: validatedRating,
       };
     } else {
       // Season not in progress yet, add it
@@ -627,7 +646,7 @@ export const updateSeasonRating = mutation({
         {
           seasonNumber: args.seasonNumber,
           status: "to_watch",
-          rating: args.rating,
+          rating: validatedRating,
         },
       ];
     }
@@ -676,6 +695,15 @@ export const updateSeasonNotes = mutation({
       throw new Error("This function is only for TV shows");
     }
 
+    // Validate season number and notes
+    const { validateSeasonNumber, validateString, LIMITS } = await import("./validation");
+    validateSeasonNumber(args.seasonNumber);
+    const validatedNotes = validateString(args.notes, {
+      fieldName: "Season notes",
+      required: false,
+      maxLength: LIMITS.NOTES_MAX,
+    });
+
     const currentProgress = listItem.seasonProgress || [];
     const seasonIndex = currentProgress.findIndex(
       (p) => p.seasonNumber === args.seasonNumber
@@ -686,7 +714,7 @@ export const updateSeasonNotes = mutation({
       newProgress = [...currentProgress];
       newProgress[seasonIndex] = {
         ...newProgress[seasonIndex],
-        notes: args.notes && args.notes.trim() ? args.notes : undefined,
+        notes: validatedNotes,
       };
     } else {
       // Season not in progress yet, add it
@@ -695,7 +723,7 @@ export const updateSeasonNotes = mutation({
         {
           seasonNumber: args.seasonNumber,
           status: "to_watch",
-          notes: args.notes && args.notes.trim() ? args.notes : undefined,
+          notes: validatedNotes,
         },
       ];
     }
@@ -745,6 +773,20 @@ export const updateSeasonDates = mutation({
     if (!media || media.type !== "tv") {
       throw new Error("This function is only for TV shows");
     }
+
+    // Validate season number and dates
+    const { validateSeasonNumber, validateDates } = await import("./validation");
+    validateSeasonNumber(args.seasonNumber);
+    
+    // Prepare date values for validation
+    const startedAtValue = args.startedAt === null ? undefined : args.startedAt;
+    const finishedAtValue = args.finishedAt === null ? undefined : args.finishedAt;
+    
+    validateDates({
+      startedAt: startedAtValue,
+      finishedAt: finishedAtValue,
+      allowFuture: false,
+    });
 
     const currentProgress = listItem.seasonProgress || [];
     const seasonIndex = currentProgress.findIndex(

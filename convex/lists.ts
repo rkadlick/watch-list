@@ -73,11 +73,31 @@ export const createList = mutation({
     const clerkId = identity.subject;
     const now = Date.now();
 
+    // Validate and sanitize inputs
+    const { validateString, LIMITS } = await import("./validation");
+    
+    const name = validateString(args.name, {
+      fieldName: "List name",
+      required: true,
+      minLength: LIMITS.LIST_NAME_MIN,
+      maxLength: LIMITS.LIST_NAME_MAX,
+    });
+
+    const description = validateString(args.description, {
+      fieldName: "Description",
+      required: false,
+      maxLength: LIMITS.LIST_DESCRIPTION_MAX,
+    });
+
+    if (!name) {
+      throw new Error("List name is required");
+    }
+
     return await ctx.db.insert("lists", {
-      name: args.name,
+      name,
       ownerId: clerkId,
       members: [],
-      description: args.description,
+      description,
       defaultSort: "added",
       updatedAt: now,
     });
@@ -115,15 +135,31 @@ export const updateList = mutation({
       throw new Error("Not authorized to update this list");
     }
 
+    // Validate and sanitize inputs
+    const { validateString, LIMITS } = await import("./validation");
+
     const updates: any = {
       updatedAt: Date.now(),
     };
 
     if (args.name !== undefined) {
-      updates.name = args.name;
+      const name = validateString(args.name, {
+        fieldName: "List name",
+        required: true,
+        minLength: LIMITS.LIST_NAME_MIN,
+        maxLength: LIMITS.LIST_NAME_MAX,
+      });
+      if (!name) {
+        throw new Error("List name cannot be empty");
+      }
+      updates.name = name;
     }
     if (args.description !== undefined) {
-      updates.description = args.description;
+      updates.description = validateString(args.description, {
+        fieldName: "Description",
+        required: false,
+        maxLength: LIMITS.LIST_DESCRIPTION_MAX,
+      });
     }
     if (args.defaultSort !== undefined) {
       updates.defaultSort = args.defaultSort;
@@ -155,6 +191,14 @@ export const addMember = mutation({
     if (role !== "creator" && role !== "admin") {
       throw new Error("Not authorized to add members");
     }
+
+    // Validate member limit
+    const { validateArrayLength, LIMITS } = await import("./validation");
+    validateArrayLength(
+      list.members,
+      LIMITS.LIST_MEMBERS_MAX - 1, // -1 because we're about to add one
+      "members"
+    );
 
     // Check if user is already a member
     if (list.members.some((m) => m.clerkId === args.clerkId)) {
