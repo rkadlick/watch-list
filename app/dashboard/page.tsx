@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation, usePaginatedQuery } from "convex/react";
+import { useQuery, useMutation, usePaginatedQuery, useConvex } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Masonry from "react-masonry-css";
 import { Button } from "@/components/ui/Button";
@@ -44,6 +44,7 @@ import {
   Share,
   Trash,
   Loader2,
+  Download,
 } from "lucide-react";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
 import {
@@ -58,6 +59,7 @@ import {
   AlertDialogFooter,
 } from "@/components/ui/AlertDialog";
 import { MediaCardSkeleton } from "@/components/media-card/MediaCardSkeleton";
+import { convertToCSV, downloadFile, generateFilename } from "@/lib/export";
 
 type StatusView = "all" | "to_watch" | "watching" | "watched" | "dropped";
 type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
@@ -86,6 +88,7 @@ export default function DashboardPage() {
     { initialNumItems: 50 }
   );
 
+  const convex = useConvex();
   const syncUser = useMutation(api.users.syncUser);
   const { mutate: createList, isPending: isCreatingList } =
     useMutationWithError(api.lists.createList, {
@@ -277,9 +280,29 @@ export default function DashboardPage() {
       description: newListDescription || undefined,
     });
     setNewListName("");
-    setNewListDescription("");
-    setIsCreateListOpen(false);
     setSelectedListId(listId);
+  };
+
+  const handleExportCSV = async () => {
+    if (!selectedListId) return;
+
+    try {
+      const exportData = await convex.query(api.listItems.exportListItems, {
+        listId: selectedListId,
+      });
+
+      const csv = convertToCSV(exportData);
+      const filename = generateFilename(exportData.listName);
+      downloadFile(csv, filename);
+
+      // Show success toast
+      const { toast } = await import("sonner");
+      toast.success("List exported successfully");
+    } catch (error) {
+      const { toast } = await import("sonner");
+      toast.error("Failed to export list");
+      console.error("Export error:", error);
+    }
   };
 
   const renderItems = () => {
@@ -515,6 +538,12 @@ export default function DashboardPage() {
                   <line x1="12" x2="12" y1="2" y2="15" />
                 </svg>
                 Share
+              </Button>
+            )}
+            {selectedList && (
+              <Button variant="outline" onClick={handleExportCSV}>
+                <Download className="mr-2 h-4 w-4" />
+                Export
               </Button>
             )}
             {canEdit && (

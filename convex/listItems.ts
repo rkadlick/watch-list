@@ -837,3 +837,65 @@ export const updateSeasonDates = mutation({
     });
   },
 });
+
+// Export list items for CSV download
+export const exportListItems = query({
+  args: {
+    listId: v.id("lists"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const clerkId = identity.subject;
+
+    // Verify user has access to this list
+    const list = await ctx.db.get(args.listId);
+    if (!list) {
+      throw new Error("List not found");
+    }
+
+    const role = getUserRole(list, clerkId);
+    if (!canView(role)) {
+      throw new Error("Not authorized to access this list");
+    }
+
+    // Get all list items
+    const listItems = await ctx.db
+      .query("listItems")
+      .withIndex("by_list_id", (q) => q.eq("listId", args.listId))
+      .collect();
+
+    // Fetch media details for each item
+    const itemsWithMedia = await Promise.all(
+      listItems.map(async (item) => {
+        const media = item.mediaId ? await ctx.db.get(item.mediaId) : null;
+        
+        return {
+          title: media?.title || "Unknown",
+          type: media?.type || "unknown",
+          status: item.status,
+          rating: item.rating,
+          priority: item.priority,
+          tags: item.tags?.join(", ") || "",
+          startedAt: item.startedAt,
+          finishedAt: item.finishedAt,
+          notes: item.notes || "",
+          releaseDate: media?.releaseDate || "",
+          genres: media?.genres?.map((g) => g.name).join(", ") || "",
+          totalSeasons: media?.totalSeasons,
+          totalEpisodes: media?.totalEpisodes,
+        };
+      })
+    );
+
+    // Format data for export
+    return {
+      listName: list.name,
+      exportedAt: Date.now(),
+      items: itemsWithMedia,
+    };
+  },
+});
