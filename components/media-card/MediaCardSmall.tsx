@@ -101,7 +101,15 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
   const buildMetaInfo = () => {
     const parts: string[] = [];
     if (media.releaseDate) {
-      parts.push(new Date(media.releaseDate).getFullYear().toString());
+      if (media.type === "movie") {
+        parts.push(new Date(media.releaseDate).toLocaleDateString("en-US", {
+          month: "short", // Using short month for small card to save space
+          day: "numeric",
+          year: "numeric",
+        }));
+      } else {
+        parts.push(new Date(media.releaseDate).getFullYear().toString());
+      }
     }
     if (media.type === "tv" && media.totalSeasons) {
       parts.push(`${media.totalSeasons} Season${media.totalSeasons !== 1 ? "s" : ""}`);
@@ -217,16 +225,30 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
 
           {/* ROW 3: Watch providers */}
           {media.watchProviders && media.watchProviders.length > 0 && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div
+              className="flex items-center gap-2 text-sm text-muted-foreground"
+              title="Watch Providers"
+            >
               <PlayCircle className="h-4 w-4 flex-shrink-0" />
               <div className="flex items-center gap-1 flex-wrap">
                 {media.watchProviders
                   .sort((a, b) => a.displayPriority - b.displayPriority)
+                  // Deduplicate and normalize providers (same as Regular card)
+                  .reduce((acc, p) => {
+                    const normalized = p.providerName
+                      .replace(/\s+Standard(\s+with\s+Ads)?$/i, "")
+                      .replace(/\s+with\s+Ads$/i, "")
+                      .trim();
+                    if (!acc.some(exist => exist.normalizedName === normalized)) {
+                      acc.push({ ...p, normalizedName: normalized });
+                    }
+                    return acc;
+                  }, [] as any[])
                   .slice(0, showAllProviders ? undefined : 2)
-                  .map((p, i) => (
+                  .map((p, i, arr) => (
                     <span key={p.providerId}>
-                      {p.providerName}
-                      {i < (showAllProviders ? media.watchProviders!.length : Math.min(media.watchProviders!.length, 2)) - 1 && ","}
+                      {p.normalizedName}
+                      {i < (showAllProviders ? arr.length : Math.min(arr.length, 2)) - 1 && ","}
                     </span>
                   ))}
                 {!showAllProviders && media.watchProviders.length > 2 && (
@@ -244,7 +266,10 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
 
           {/* ROW 3.5: Date (Watched for movies, Started for shows) */}
           {(media.type === "movie" && finishedAt) || (media.type === "tv" && startedAt) ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div
+              className="flex items-center gap-2 text-sm text-muted-foreground"
+              title={media.type === "movie" ? "Finished Date" : "Started Date"}
+            >
               <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
               <span>
                 {formatDate(media.type === "movie" ? finishedAt : startedAt)}
@@ -254,7 +279,10 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
 
           {/* ROW 4: Tags */}
           {tags && tags.length > 0 && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div
+              className="flex items-center gap-2 text-sm text-muted-foreground"
+              title="Tags"
+            >
               <Tag className="h-3.5 w-3.5 flex-shrink-0" />
               <div className="flex flex-wrap gap-1">
                 {tags.slice(0, 3).map((tag) => (
@@ -273,7 +301,10 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
 
           {/* ROW 5: Notes preview */}
           {notes && (
-            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+            <div
+              className="flex items-start gap-2 text-sm text-muted-foreground"
+              title="Notes"
+            >
               <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
               <span className="line-clamp-2 italic text-muted-foreground/80">
                 {notes}
@@ -353,11 +384,13 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
       {/* MOVIES: Just show Movie Info form inline (no seasons) */}
       {media.type === "movie" && (
         <CardContent className="pt-0 pb-2 px-3">
-          <details className="group border-t border-border/50">
-            <summary className="flex items-center justify-center gap-2 cursor-pointer text-sm font-medium text-foreground hover:text-primary transition-colors py-2 px-1 -mx-1 rounded-md hover:bg-accent/50">
-              <FileText className="h-4 w-4" />
-              <span>Movie Info</span>
-              <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+          <details className="group border-t border-border/50 pt-2">
+            <summary className="list-none bg-muted rounded-lg p-0.5 mt-2 cursor-pointer select-none [&::-webkit-details-marker]:hidden">
+              <div className="flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-medium transition-all text-muted-foreground hover:text-foreground group-open:bg-background group-open:text-foreground group-open:shadow-sm">
+                <FileText className="h-3.5 w-3.5" />
+                <span>Movie Info</span>
+                <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180 opacity-50 group-open:opacity-100" />
+              </div>
             </summary>
             <div className="pt-3 pb-1 border-t border-border/30 mt-2">
               <TrackingForm

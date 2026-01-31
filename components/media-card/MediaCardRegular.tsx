@@ -106,7 +106,15 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
   const buildMetaInfo = () => {
     const parts: string[] = [];
     if (media.releaseDate) {
-      parts.push(new Date(media.releaseDate).getFullYear().toString());
+      if (media.type === "movie") {
+        parts.push(new Date(media.releaseDate).toLocaleDateString("en-US", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        }));
+      } else {
+        parts.push(new Date(media.releaseDate).getFullYear().toString());
+      }
     }
     if (media.type === "tv" && media.totalSeasons) {
       parts.push(`${media.totalSeasons} Season${media.totalSeasons !== 1 ? "s" : ""}`);
@@ -230,7 +238,10 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
 
             {/* Genres - dot separated */}
             {media.genres && media.genres.length > 0 && (
-              <div className={`${config.textSize} text-muted-foreground/70`}>
+              <div
+                className={`${config.textSize} text-muted-foreground/70`}
+                title={`Genres: ${media.genres.map(g => g.name).join(", ")}`}
+              >
                 {media.genres.slice(0, size === "large" ? 6 : 4).map(g => g.name).join(" • ")}
                 {media.genres.length > (size === "large" ? 6 : 4) && (
                   <span> +{media.genres.length - (size === "large" ? 6 : 4)}</span>
@@ -240,13 +251,30 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
 
             {/* Providers - cleaner inline layout */}
             {media.watchProviders && media.watchProviders.length > 0 && (
-              <div className={`${config.textSize} text-muted-foreground/70 flex items-center gap-1.5`}>
+              <div
+                className={`${config.textSize} text-muted-foreground/70 flex items-center gap-1.5`}
+                title="Watch Providers"
+              >
                 <PlayCircle className={config.iconSize} />
                 <span>
                   {media.watchProviders
                     .sort((a, b) => a.displayPriority - b.displayPriority)
+                    // Deduplicate and normalize providers
+                    .reduce((acc, p) => {
+                      // Remove suffixes like "Standard with Ads", "with Ads"
+                      const normalized = p.providerName
+                        .replace(/\s+Standard(\s+with\s+Ads)?$/i, "")
+                        .replace(/\s+with\s+Ads$/i, "")
+                        .trim();
+
+                      // Only add if not already present (checking normalized name)
+                      if (!acc.some(exist => exist.normalizedName === normalized)) {
+                        acc.push({ ...p, normalizedName: normalized });
+                      }
+                      return acc;
+                    }, [] as any[])
                     .slice(0, size === "large" ? 4 : 3)
-                    .map((p) => p.providerName)
+                    .map((p) => p.normalizedName)
                     .join(", ")}
                   {media.watchProviders.length > (size === "large" ? 4 : 3) && (
                     <span className="ml-1">+{media.watchProviders.length - (size === "large" ? 4 : 3)}</span>
@@ -257,7 +285,10 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
 
             {/* Date (Watched for movies, Started for shows) */}
             {(media.type === "movie" && finishedAt) || (media.type === "tv" && startedAt) ? (
-              <div className={`${config.textSize} text-muted-foreground/70 flex items-center gap-1.5`}>
+              <div
+                className={`${config.textSize} text-muted-foreground/70 flex items-center gap-1.5`}
+                title={media.type === "movie" ? "Finished Date" : "Started Date"}
+              >
                 <Calendar className={config.iconSize} />
                 <span>
                   {formatDate(media.type === "movie" ? finishedAt : startedAt)}
@@ -267,7 +298,10 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
 
             {/* Tags - dot separated */}
             {tags && tags.length > 0 && (
-              <div className={`${config.textSize} text-muted-foreground/70`}>
+              <div
+                className={`${config.textSize} text-muted-foreground/70`}
+                title={`Tags: ${tags.join(", ")}`}
+              >
                 {tags.slice(0, size === "large" ? 5 : 4).join(" • ")}
                 {tags.length > (size === "large" ? 5 : 4) && ` +${tags.length - (size === "large" ? 5 : 4)}`}
               </div>
@@ -278,6 +312,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
               <div
                 className={`${config.textSize} text-muted-foreground/60 italic ${size === "large" ? "line-clamp-3" : "line-clamp-2"
                   }`}
+                title="Notes"
               >
                 &ldquo;{notes}&rdquo;
               </div>
@@ -350,11 +385,13 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
       {/* MOVIES: Just show Movie Info form inline (no seasons) */}
       {media.type === "movie" && (
         <CardContent className="pt-0 pb-3 px-3">
-          <details className="group border-t border-border/50">
-            <summary className="flex items-center justify-center gap-2 cursor-pointer text-sm font-medium text-foreground hover:text-primary transition-colors py-2 px-1 -mx-1 rounded-md hover:bg-accent/50">
-              <FileText className="h-4 w-4" />
-              <span>Movie Info</span>
-              <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+          <details className="group border-t border-border/50 pt-3">
+            <summary className="list-none bg-muted rounded-lg p-1 cursor-pointer select-none [&::-webkit-details-marker]:hidden">
+              <div className="flex items-center justify-center gap-2 rounded-md py-1.5 text-sm font-medium transition-all text-muted-foreground hover:text-foreground group-open:bg-background group-open:text-foreground group-open:shadow-sm">
+                <FileText className="h-4 w-4" />
+                <span>Movie Info</span>
+                <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180 opacity-50 group-open:opacity-100" />
+              </div>
             </summary>
             <div className="pt-3 pb-1 border-t border-border/30 mt-2">
               <TrackingForm

@@ -63,7 +63,11 @@ export function SeasonEditForm({
   if (episodeCount) metaParts.push(`${episodeCount} Episodes`);
   if (airDate) {
     const formattedAirDate = formatISODateDisplay(airDate);
-    if (formattedAirDate) metaParts.push(`Aired ${formattedAirDate}`);
+    // Simple future check (assuming YYYY-MM-DD)
+    const isFuture = new Date(airDate) > new Date();
+    const prefix = isFuture ? "Airing on" : "Aired";
+
+    if (formattedAirDate) metaParts.push(`${prefix} ${formattedAirDate}`);
   }
 
   return (
