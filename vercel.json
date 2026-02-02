@@ -6,14 +6,6 @@
 	"regions": [
 		"iad1"
 	],
-	"env": {
-		"NEXT_PUBLIC_CONVEX_URL": "@convex_url",
-		"CONVEX_DEPLOYMENT": "@convex_deployment",
-		"CLERK_PUBLISHABLE_KEY": "@clerk_publishable_key",
-		"NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@clerk_publishable_key",
-		"CLERK_JWT_ISSUER_DOMAIN": "@clerk_jwt_issuer_domain",
-		"TMDB_API_KEY": "@tmdb_api_key"
-	},
 	"headers": [
 		{
 			"source": "/(.*)",
