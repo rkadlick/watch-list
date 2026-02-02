@@ -15,6 +15,7 @@ import type * as media from "../media.js";
 import type * as performance from "../performance.js";
 import type * as tmdb from "../tmdb.js";
 import type * as users from "../users.js";
+import type * as validation from "../validation.js";
 
 import type {
   ApiFromModules,
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   performance: typeof performance;
   tmdb: typeof tmdb;
   users: typeof users;
+  validation: typeof validation;
 }>;
 
 /**
