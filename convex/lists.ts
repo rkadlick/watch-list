@@ -1,6 +1,7 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
+import { validateString, LIMITS, validateArrayLength } from "./validation";
 
 // Helper function to get user's role in a list
 // Returns "creator" | "admin" | "viewer" | null
@@ -76,7 +77,6 @@ export const createList = mutation({
     const now = Date.now();
 
     // Validate and sanitize inputs
-    const { validateString, LIMITS } = await import("./validation");
     
     const name = validateString(args.name, {
       fieldName: "List name",
@@ -138,7 +138,6 @@ export const updateList = mutation({
     }
 
     // Validate and sanitize inputs
-    const { validateString, LIMITS } = await import("./validation");
 
     const updates: any = {
       updatedAt: Date.now(),
@@ -195,7 +194,6 @@ export const addMember = mutation({
     }
 
     // Validate member limit
-    const { validateArrayLength, LIMITS } = await import("./validation");
     validateArrayLength(
       list.members,
       LIMITS.LIST_MEMBERS_MAX - 1, // -1 because we're about to add one
