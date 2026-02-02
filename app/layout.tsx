@@ -38,7 +38,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ErrorBoundary>
-          <ClerkProvider>
+          {/* @ts-expect-error - Satellite mode props are valid but not fully typed in this Clerk version */}
+          <ClerkProvider
+            isSatellite
+            domain={(process.env.NEXT_PUBLIC_CLERK_DOMAIN as string) || undefined}
+            proxyUrl={(process.env.NEXT_PUBLIC_CLERK_PROXY_URL as string) || undefined}
+          >
             <ConvexClientProvider>{children}</ConvexClientProvider>
           </ClerkProvider>
           <Toaster />
