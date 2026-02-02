@@ -42,7 +42,7 @@ export default function RootLayout({
           <ClerkProvider
             isSatellite
             domain={(process.env.NEXT_PUBLIC_CLERK_DOMAIN as string) || undefined}
-            proxyUrl={(process.env.NEXT_PUBLIC_CLERK_PROXY_URL as string) || undefined}
+            signInUrl={(process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL as string) || undefined}
           >
             <ConvexClientProvider>{children}</ConvexClientProvider>
           </ClerkProvider>
