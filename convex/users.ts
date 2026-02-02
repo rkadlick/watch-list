@@ -131,3 +131,123 @@ export const getUserByClerkId = query({
     };
   },
 });
+
+// ============================================================================
+// WEBHOOK MUTATIONS
+// ============================================================================
+
+/**
+ * Create user from Clerk webhook
+ * Called when a new user signs up
+ */
+export const createUserFromWebhook = mutation({
+  args: {
+    clerkId: v.string(),
+    email: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Combine firstName and lastName into name
+    const name = [args.firstName, args.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || "Anonymous";
+
+    // Check if user already exists (idempotency)
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (existingUser) {
+      console.log(`User ${args.clerkId} already exists, updating instead`);
+      await ctx.db.patch(existingUser._id, {
+        email: args.email,
+        name,
+        avatarUrl: args.imageUrl,
+      });
+      return existingUser._id;
+    }
+
+    // Create new user
+    return await ctx.db.insert("users", {
+      clerkId: args.clerkId,
+      email: args.email,
+      name,
+      avatarUrl: args.imageUrl,
+    });
+  },
+});
+
+/**
+ * Update user from Clerk webhook
+ * Called when user updates their profile
+ */
+export const updateUserFromWebhook = mutation({
+  args: {
+    clerkId: v.string(),
+    email: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const name = [args.firstName, args.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || "Anonymous";
+
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!existingUser) {
+      console.log(`User ${args.clerkId} not found, creating instead`);
+      return await ctx.db.insert("users", {
+        clerkId: args.clerkId,
+        email: args.email,
+        name,
+        avatarUrl: args.imageUrl,
+      });
+    }
+
+    await ctx.db.patch(existingUser._id, {
+      email: args.email,
+      name,
+      avatarUrl: args.imageUrl,
+    });
+    return existingUser._id;
+  },
+});
+
+/**
+ * Delete user from Clerk webhook
+ * Called when user deletes their account
+ * This will cascade delete all their data
+ */
+export const deleteUserFromWebhook = mutation({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user) {
+      console.log(`User ${args.clerkId} not found for deletion`);
+      return;
+    }
+
+    // Delete user (database cascade rules will handle related data)
+    // Note: You may want to add additional cleanup logic here
+    // such as transferring ownership of lists or removing member access
+    await ctx.db.delete(user._id);
+    
+    console.log(`Deleted user ${args.clerkId} and all related data`);
+  },
+});
