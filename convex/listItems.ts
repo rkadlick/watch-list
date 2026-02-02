@@ -1,5 +1,13 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { 
+  validateString, 
+  validateRating, 
+  validateTags, 
+  validateSeasonNumber, 
+  validateDates, 
+  LIMITS 
+} from "./validation";
 
 // Helper function to get user's role in a list
 function getUserRole(
@@ -244,7 +252,6 @@ export const updateSeasonStatus = mutation({
     }
 
     // Validate season number
-    const { validateSeasonNumber } = await import("./validation");
     validateSeasonNumber(args.seasonNumber);
 
     // Handle switching "watching" season — only one allowed at a time
@@ -387,7 +394,6 @@ export const updateRating = mutation({
     }
 
     // Validate rating
-    const { validateRating } = await import("./validation");
     const validatedRating = validateRating(args.rating, "Rating");
 
     await ctx.db.patch(args.listItemId, {
@@ -429,7 +435,6 @@ export const updateNotes = mutation({
     }
 
     // Validate and sanitize notes
-    const { validateString, LIMITS } = await import("./validation");
     const validatedNotes = validateString(args.notes, {
       fieldName: "Notes",
       required: false,
@@ -515,7 +520,6 @@ export const updateTags = mutation({
     }
 
     // Validate and sanitize tags
-    const { validateTags } = await import("./validation");
     const validatedTags = validateTags(args.tags);
 
     await ctx.db.patch(args.listItemId, {
@@ -573,7 +577,7 @@ export const updateDates = mutation({
     }
 
     // Validate date logic
-    const { validateDates } = await import("./validation");
+    // Validate date logic
     validateDates({
       startedAt: updates.startedAt !== undefined ? updates.startedAt : listItem.startedAt,
       finishedAt: updates.finishedAt !== undefined ? updates.finishedAt : listItem.finishedAt,
@@ -623,7 +627,7 @@ export const updateSeasonRating = mutation({
     }
 
     // Validate season number and rating
-    const { validateSeasonNumber, validateRating } = await import("./validation");
+    // Validate season number and rating
     validateSeasonNumber(args.seasonNumber);
     const validatedRating = validateRating(args.rating, "Season rating");
 
@@ -696,7 +700,7 @@ export const updateSeasonNotes = mutation({
     }
 
     // Validate season number and notes
-    const { validateSeasonNumber, validateString, LIMITS } = await import("./validation");
+    // Validate season number and notes
     validateSeasonNumber(args.seasonNumber);
     const validatedNotes = validateString(args.notes, {
       fieldName: "Season notes",
@@ -775,7 +779,7 @@ export const updateSeasonDates = mutation({
     }
 
     // Validate season number and dates
-    const { validateSeasonNumber, validateDates } = await import("./validation");
+    // Validate season number and dates
     validateSeasonNumber(args.seasonNumber);
     
     // Prepare date values for validation
