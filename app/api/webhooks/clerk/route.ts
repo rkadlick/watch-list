@@ -50,7 +50,6 @@ export async function POST(req: Request) {
 
   // Handle different event types
   const eventType = evt.type;
-  console.log(`Received webhook: ${eventType} for user ${evt.data.id}`);
 
   try {
     if (eventType === 'user.created') {
@@ -61,7 +60,6 @@ export async function POST(req: Request) {
         lastName: evt.data.last_name || undefined,
         imageUrl: evt.data.image_url || undefined,
       });
-      console.log(`✅ User created: ${evt.data.id}`);
     }
 
     if (eventType === 'user.updated') {
@@ -72,14 +70,12 @@ export async function POST(req: Request) {
         lastName: evt.data.last_name || undefined,
         imageUrl: evt.data.image_url || undefined,
       });
-      console.log(`✅ User updated: ${evt.data.id}`);
     }
 
     if (eventType === 'user.deleted') {
       await convex.mutation(api.users.deleteUserFromWebhook, {
         clerkId: evt.data.id!,
       });
-      console.log(`✅ User deleted: ${evt.data.id}`);
     }
 
     return new Response('Webhook processed successfully', { status: 200 });

@@ -162,7 +162,6 @@ export const createUserFromWebhook = mutation({
       .first();
 
     if (existingUser) {
-      console.log(`User ${args.clerkId} already exists, updating instead`);
       await ctx.db.patch(existingUser._id, {
         email: args.email,
         name,
@@ -205,7 +204,6 @@ export const updateUserFromWebhook = mutation({
       .first();
 
     if (!existingUser) {
-      console.log(`User ${args.clerkId} not found, creating instead`);
       return await ctx.db.insert("users", {
         clerkId: args.clerkId,
         email: args.email,
@@ -239,7 +237,6 @@ export const deleteUserFromWebhook = mutation({
       .first();
 
     if (!user) {
-      console.log(`User ${args.clerkId} not found for deletion`);
       return;
     }
 
@@ -247,7 +244,5 @@ export const deleteUserFromWebhook = mutation({
     // Note: You may want to add additional cleanup logic here
     // such as transferring ownership of lists or removing member access
     await ctx.db.delete(user._id);
-    
-    console.log(`Deleted user ${args.clerkId} and all related data`);
   },
 });
