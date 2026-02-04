@@ -82,6 +82,79 @@ docker-compose logs -f
 docker-compose up --build
 ```
 
+## Development Environment (Hot Reload)
+
+Want to edit code in Docker and see changes instantly? Use the development environment:
+
+### Start Dev Environment
+
+```bash
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+This will:
+- Mount your local code directory into the container
+- Run `npm run dev` with hot reload
+- Automatically reload when you edit files in your IDE
+- Read environment variables from your `.env` file
+
+### How It Works
+
+- **Edit code locally** in your IDE (VS Code, Cursor, etc.)
+- **Changes appear instantly** in the Docker container (hot reload)
+- The container uses your local source code via volume mounting
+- No need to rebuild - just edit and save!
+
+### Dev Commands
+
+```bash
+# Start dev environment
+docker-compose -f docker-compose.dev.yml up
+
+# Stop dev environment
+docker-compose -f docker-compose.dev.yml down
+
+# View logs
+docker-compose -f docker-compose.dev.yml logs -f
+
+# Rebuild if dependencies change
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+### Claude Code CLI in Docker
+
+The dev environment includes **Claude Code CLI** so you can use it directly in Docker without installing it locally:
+
+1. **Start the dev environment:**
+   ```bash
+   docker-compose -f docker-compose.dev.yml up --build
+   ```
+
+2. **Access the container shell:**
+   ```bash
+   docker exec -it watch-list-dev sh
+   ```
+
+3. **Use Claude Code CLI:**
+   ```bash
+   # Check if it's installed
+   claude --version
+   
+   # Set up Claude Code (first time only)
+   claude setup
+   
+   # Use Claude Code CLI
+   claude "help me refactor this code"
+   claude -p "explain this function"
+   ```
+
+**Note:** Claude Code CLI is only installed in the Docker container, not on your local machine. You'll need to authenticate with your Anthropic API key the first time you use it.
+
+### Production vs Development
+
+- **Production** (`docker-compose up`): Builds optimized production bundle, no hot reload
+- **Development** (`docker-compose -f docker-compose.dev.yml up`): Hot reload, mounts your code, includes Code-Server for browser-based editing
+
 ## Troubleshooting
 
 **Build fails with "Missing publishableKey":**
