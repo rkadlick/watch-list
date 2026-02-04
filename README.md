@@ -75,7 +75,7 @@ A modern, full-stack web application for tracking movies and TV shows. Create mu
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/watch-list.git
+   git clone https://github.com/rkadlick/watch-list.git
    cd watch-list
    ```
 
