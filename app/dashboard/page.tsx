@@ -370,7 +370,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen bg-background text-foreground w-full max-w-full overflow-x-hidden">
       {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-30 w-72 border-r bg-sidebar text-sidebar-foreground transition-transform duration-200 md:static md:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
@@ -513,7 +513,7 @@ export default function DashboardPage() {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 w-full max-w-full overflow-x-hidden">
         <div className="flex items-center justify-between gap-3 border-b bg-card/80 px-4 py-3 backdrop-blur">
           <div className="flex items-center gap-3">
             <Button

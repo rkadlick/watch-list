@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ConvexClientProvider } from "@/components/ConvexProvider";
@@ -21,6 +21,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Watch List - Movie & TV Tracker",
   description: "Track your favorite movies and TV shows",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({
