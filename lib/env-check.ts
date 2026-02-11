@@ -12,7 +12,7 @@ const requiredServerEnvVars = [
 ] as const;
 
 const optionalServerEnvVars = [
-  "CLERK_PUBLISHABLE_KEY",
+  "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
   "CLERK_SECRET_KEY",
 ] as const;
 

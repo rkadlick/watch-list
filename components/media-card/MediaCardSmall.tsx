@@ -26,6 +26,7 @@ import { TrackingForm } from "./TrackingForm";
 import { MediaCardInnerProps, StatusValue, statusColors, statusLabels } from "./types";
 import { useState } from "react";
 import { getMediaBlurPlaceholder } from "@/lib/image-utils";
+import { PlatformLogo } from "@/components/PlatformLogo";
 
 interface MediaCardSmallProps extends MediaCardInnerProps {
   priority?: boolean; // For priority loading
@@ -226,14 +227,14 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
           {/* ROW 3: Watch providers */}
           {media.watchProviders && media.watchProviders.length > 0 && (
             <div
-              className="flex items-center gap-2 text-sm text-muted-foreground"
+              className="flex items-center gap-2"
               title="Watch Providers"
             >
-              <PlayCircle className="h-4 w-4 flex-shrink-0" />
-              <div className="flex items-center gap-1 flex-wrap">
+              <PlayCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {media.watchProviders
                   .sort((a, b) => a.displayPriority - b.displayPriority)
-                  // Deduplicate and normalize providers (same as Regular card)
+                  // Deduplicate and normalize providers
                   .reduce((acc, p) => {
                     const normalized = p.providerName
                       .replace(/\s+Standard(\s+with\s+Ads)?$/i, "")
@@ -244,20 +245,21 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
                     }
                     return acc;
                   }, [] as any[])
-                  .slice(0, showAllProviders ? undefined : 2)
-                  .map((p, i, arr) => (
-                    <span key={p.providerId}>
-                      {p.normalizedName}
-                      {i < (showAllProviders ? arr.length : Math.min(arr.length, 2)) - 1 && ","}
-                    </span>
+                  .slice(0, showAllProviders ? undefined : 4)
+                  .map((p) => (
+                    <PlatformLogo
+                      key={p.providerId}
+                      providerName={p.normalizedName}
+                      size={24}
+                    />
                   ))}
-                {!showAllProviders && media.watchProviders.length > 2 && (
+                {!showAllProviders && media.watchProviders.length > 4 && (
                   <Badge
                     variant="secondary"
-                    className="text-xs px-1.5 py-0 cursor-pointer hover:bg-secondary/80"
+                    className="text-xs px-1.5 py-0 h-6 cursor-pointer hover:bg-secondary/80"
                     onClick={() => setShowAllProviders(true)}
                   >
-                    +{media.watchProviders.length - 2}
+                    +{media.watchProviders.length - 4}
                   </Badge>
                 )}
               </div>

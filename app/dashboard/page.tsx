@@ -422,37 +422,82 @@ export default function DashboardPage() {
           <div className="space-y-2">
             {lists?.map((list) => {
               const listRole = getListRole(list, user?.id);
+              const isCreator = list.ownerId === user?.id;
               return (
-                <button
+                <div
                   key={list._id}
-                  onClick={() => {
-                    setSelectedListId(list._id);
-                    setIsSidebarOpen(false);
-                  }}
-                  className={`w-full rounded-lg border px-3 py-3 text-left transition-colors cursor-pointer flex flex-col items-start gap-1
+                  className={`w-full rounded-lg border px-3 py-3 transition-colors flex items-start gap-2
                 ${selectedListId === list._id
                       ? "border-primary/60 bg-primary/5 text-primary"
                       : "border-transparent hover:border-border hover:bg-muted/60"
                     }`}
                 >
-                  <div className="w-full font-medium truncate">{list.name}</div>
+                  <button
+                    onClick={() => {
+                      setSelectedListId(list._id);
+                      setIsSidebarOpen(false);
+                    }}
+                    className="flex-1 text-left cursor-pointer flex flex-col items-start gap-1 min-w-0"
+                  >
+                    <div className="w-full font-medium truncate">{list.name}</div>
 
-                  {list.description && (
-                    <div className="w-full text-sm text-muted-foreground line-clamp-2">
-                      {list.description}
+                    {list.description && (
+                      <div className="w-full text-sm text-muted-foreground line-clamp-2">
+                        {list.description}
+                      </div>
+                    )}
+
+                    <div className="w-full text-xs text-muted-foreground capitalize">
+                      {listRole === "creator"
+                        ? "Creator"
+                        : listRole === "admin"
+                          ? "Admin"
+                          : listRole === "viewer"
+                            ? "Viewer"
+                            : "Unknown"}
                     </div>
-                  )}
+                  </button>
 
-                  <div className="w-full text-xs text-muted-foreground capitalize">
-                    {listRole === "creator"
-                      ? "Creator"
-                      : listRole === "admin"
-                        ? "Admin"
-                        : listRole === "viewer"
-                          ? "Viewer"
-                          : "Unknown"}
-                  </div>
-                </button>
+                  {isCreator && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-red-600 flex-shrink-0"
+                          title="Delete list"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete List</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete &ldquo;{list.name}&rdquo; and all items. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => {
+                              if (selectedListId === list._id) {
+                                handleDeleteList();
+                              } else {
+                                deleteList({ listId: list._id });
+                              }
+                            }}
+                            disabled={isDeletingList}
+                          >
+                            <Trash className="h-3 w-3 mr-1" />
+                            {isDeletingList ? "Deleting..." : "Delete"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -634,74 +679,6 @@ export default function DashboardPage() {
               </>
             )}
 
-            {/* Delete button - RED, next to Add Media */}
-            {selectedList?.ownerId === user?.id && (
-              <>
-                {/* Mobile Delete Button */}
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="md:hidden h-9 w-9"
-                      title="Delete list"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete List</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete the list and all items. This cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDeleteList}
-                        disabled={isDeletingList}
-                      >
-                        <Trash className="h-3 w-3 mr-1" />
-                        {isDeletingList ? "Deleting..." : "Delete"}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                {/* Desktop Delete Button */}
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="destructive"
-                      className="hidden md:flex"
-                    >
-                      <Trash className="h-4 w-4 mr-2" />
-                      Delete
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete List</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete the list and all items. This cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDeleteList}
-                        disabled={isDeletingList}
-                      >
-                        <Trash className="h-3 w-3 mr-1" />
-                        {isDeletingList ? "Deleting..." : "Delete"}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
-            )}
-
             <ThemeToggle />
           </div>
         </div>
@@ -750,22 +727,6 @@ export default function DashboardPage() {
                     )}
 
                   </div>
-                  {/* Card size selector - desktop only */}
-                  <div className="hidden md:flex items-center gap-2">
-                    <Select
-                      value={cardSize}
-                      onValueChange={(value) => setCardSize(value as CardSize)}
-                    >
-                      <SelectTrigger className="w-[120px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="small">Small</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="large">Large</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
 
                 {/* Horizontal scrolling status pills */}
@@ -797,6 +758,77 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                  {/* Card size selector - icon buttons */}
+                  <div className="hidden md:flex items-center gap-1 border rounded-md p-0.5">
+                    <Button
+                      variant={cardSize === "small" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setCardSize("small")}
+                      title="Small cards"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                      </svg>
+                    </Button>
+                    <Button
+                      variant={cardSize === "normal" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setCardSize("normal")}
+                      title="Normal cards"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="3" width="18" height="7" />
+                        <rect x="3" y="14" width="18" height="7" />
+                      </svg>
+                    </Button>
+                    <Button
+                      variant={cardSize === "large" ? "secondary" : "ghost"}
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setCardSize("large")}
+                      title="Large cards"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="3" width="18" height="18" />
+                      </svg>
+                    </Button>
+                  </div>
+
                   <div className="flex items-center gap-2">
                     <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                     <Select

@@ -25,6 +25,7 @@ import { PrioritySelector } from "./PrioritySelector";
 import { TrackingForm } from "./TrackingForm";
 import { MediaCardProps, MediaCardInnerProps, StatusValue, statusColors, statusLabels } from "./types";
 import { getMediaBlurPlaceholder } from "@/lib/image-utils";
+import { PlatformLogo } from "@/components/PlatformLogo";
 
 interface MediaCardRegularComponentProps extends MediaCardInnerProps {
   size?: MediaCardProps["size"];
@@ -249,37 +250,44 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
               </div>
             )}
 
-            {/* Providers - cleaner inline layout */}
+            {/* Providers - logo badges */}
             {media.watchProviders && media.watchProviders.length > 0 && (
               <div
-                className={`${config.textSize} text-muted-foreground/70 flex items-center gap-1.5`}
+                className="flex items-center gap-2"
                 title="Watch Providers"
               >
-                <PlayCircle className={config.iconSize} />
-                <span>
+                <PlayCircle className={`${config.iconSize} text-muted-foreground`} />
+                <div className="flex items-center gap-1.5 flex-wrap">
                   {media.watchProviders
                     .sort((a, b) => a.displayPriority - b.displayPriority)
                     // Deduplicate and normalize providers
                     .reduce((acc, p) => {
-                      // Remove suffixes like "Standard with Ads", "with Ads"
                       const normalized = p.providerName
                         .replace(/\s+Standard(\s+with\s+Ads)?$/i, "")
                         .replace(/\s+with\s+Ads$/i, "")
                         .trim();
-
-                      // Only add if not already present (checking normalized name)
                       if (!acc.some(exist => exist.normalizedName === normalized)) {
                         acc.push({ ...p, normalizedName: normalized });
                       }
                       return acc;
                     }, [] as any[])
-                    .slice(0, size === "large" ? 4 : 3)
-                    .map((p) => p.normalizedName)
-                    .join(", ")}
-                  {media.watchProviders.length > (size === "large" ? 4 : 3) && (
-                    <span className="ml-1">+{media.watchProviders.length - (size === "large" ? 4 : 3)}</span>
+                    .slice(0, size === "large" ? 6 : 5)
+                    .map((p) => (
+                      <PlatformLogo
+                        key={p.providerId}
+                        providerName={p.normalizedName}
+                        size={size === "large" ? 32 : 28}
+                      />
+                    ))}
+                  {media.watchProviders.length > (size === "large" ? 6 : 5) && (
+                    <Badge
+                      variant="secondary"
+                      className={`text-xs px-2 py-0.5 ${size === "large" ? "h-8" : "h-7"}`}
+                    >
+                      +{media.watchProviders.length - (size === "large" ? 6 : 5)}
+                    </Badge>
                   )}
-                </span>
+                </div>
               </div>
             )}
 
