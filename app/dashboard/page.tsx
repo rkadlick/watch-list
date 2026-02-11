@@ -46,6 +46,8 @@ import {
   Trash,
   Loader2,
   Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
 import {
@@ -113,6 +115,7 @@ export default function DashboardPage() {
   >({});
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const [isEditListDialogOpen, setIsEditListDialogOpen] = useState(false);
   const [isShareListOpen, setIsShareListOpen] = useState(false);
@@ -444,16 +447,20 @@ export default function DashboardPage() {
     <div className="flex min-h-screen bg-background text-foreground w-full max-w-full overflow-x-hidden">
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-30 w-72 border-r bg-sidebar text-sidebar-foreground transition-transform duration-200 md:static md:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+        className={`fixed inset-y-0 left-0 z-30 border-r bg-sidebar text-sidebar-foreground transition-all duration-200 md:static md:translate-x-0 ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        } ${isSidebarCollapsed ? "md:w-16" : "md:w-72"} w-72`}
       >
         <div className="flex items-center justify-between border-b px-4 py-4">
-          <div>
-            <div className="text-sm uppercase tracking-wide text-muted-foreground">
-              Lists
+          {!isSidebarCollapsed && (
+            <div>
+              <div className="text-sm uppercase tracking-wide text-muted-foreground">
+                Lists
+              </div>
+              <div className="text-lg font-semibold">Watch List</div>
             </div>
-            <div className="text-lg font-semibold">Watch List</div>
-          </div>
+          )}
+          {/* Mobile close button */}
           <Button
             variant="ghost"
             size="icon"
@@ -462,13 +469,29 @@ export default function DashboardPage() {
           >
             <X className="h-4 w-4" />
           </Button>
+          {/* Desktop collapse/expand button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={`hidden md:flex ${isSidebarCollapsed ? "mx-auto" : ""}`}
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isSidebarCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
+          </Button>
         </div>
 
-        <div className="px-4 py-3 border-b">
+        <div className={`py-3 border-b ${isSidebarCollapsed ? "px-2" : "px-4"}`}>
           <Button
             variant="outline"
             className="w-full"
+            size={isSidebarCollapsed ? "icon" : "default"}
             onClick={() => setIsCreateListOpen(true)}
+            title={isSidebarCollapsed ? "Create List" : undefined}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -480,35 +503,38 @@ export default function DashboardPage() {
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              className="mr-2"
+              className={isSidebarCollapsed ? "" : "mr-2"}
             >
               <line x1="12" x2="12" y1="5" y2="19" />
               <line x1="5" x2="19" y1="12" y2="12" />
             </svg>
-            Create List
+            {!isSidebarCollapsed && "Create List"}
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? "p-2" : "p-3"}`}>
           <div className="space-y-4">
             {/* Creator Lists */}
             {groupedLists.creator.length > 0 && (
               <div className="space-y-2">
-                <div className={`text-xs font-semibold uppercase tracking-wider px-2 ${getRoleBadgeStyles("creator").section}`}>
-                  Created by You
-                </div>
+                {!isSidebarCollapsed && (
+                  <div className={`text-xs font-semibold uppercase tracking-wider px-2 ${getRoleBadgeStyles("creator").section}`}>
+                    Created by You
+                  </div>
+                )}
                 {groupedLists.creator.map((list, index) => {
                   const listRole = getListRole(list, user?.id);
                   const isCreator = list.ownerId === user?.id;
                   const roleStyles = getRoleBadgeStyles("creator");
                   return (
                     <div key={list._id}>
-                      {index > 0 && (
+                      {index > 0 && !isSidebarCollapsed && (
                         <div className={`border-t my-2 ${roleStyles.separator}`} />
                       )}
                       <div
-                        className={`w-full rounded-lg border px-3 py-3 transition-colors flex items-start gap-2
-                      ${selectedListId === list._id
+                        className={`w-full rounded-lg border transition-colors flex items-start gap-2 ${
+                          isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
+                        } ${selectedListId === list._id
                             ? roleStyles.active
                             : roleStyles.inactive
                           }`}
@@ -518,22 +544,33 @@ export default function DashboardPage() {
                           setSelectedListId(list._id);
                           setIsSidebarOpen(false);
                         }}
-                        className="flex-1 text-left cursor-pointer flex flex-col items-start gap-1.5 min-w-0"
+                        className={`text-left cursor-pointer flex items-start gap-1.5 ${
+                          isSidebarCollapsed ? "flex-col items-center" : "flex-1 flex-col min-w-0"
+                        }`}
+                        title={isSidebarCollapsed ? list.name : undefined}
                       >
-                        <div className="w-full font-medium truncate">{list.name}</div>
-
-                        {list.description && (
-                          <div className="w-full text-sm text-muted-foreground line-clamp-2">
-                            {list.description}
+                        {isSidebarCollapsed ? (
+                          <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm">
+                            {list.name.charAt(0).toUpperCase()}
                           </div>
-                        )}
+                        ) : (
+                          <>
+                            <div className="w-full font-medium truncate">{list.name}</div>
 
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
-                          Creator
-                        </span>
+                            {list.description && (
+                              <div className="w-full text-sm text-muted-foreground line-clamp-2">
+                                {list.description}
+                              </div>
+                            )}
+
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
+                              Creator
+                            </span>
+                          </>
+                        )}
                       </button>
 
-                      {isCreator && (
+                      {isCreator && !isSidebarCollapsed && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
@@ -582,19 +619,22 @@ export default function DashboardPage() {
             {/* Admin Lists */}
             {groupedLists.admin.length > 0 && (
               <div className="space-y-2">
-                <div className={`text-xs font-semibold uppercase tracking-wider px-2 ${getRoleBadgeStyles("admin").section}`}>
-                  Admin Access
-                </div>
+                {!isSidebarCollapsed && (
+                  <div className={`text-xs font-semibold uppercase tracking-wider px-2 ${getRoleBadgeStyles("admin").section}`}>
+                    Admin Access
+                  </div>
+                )}
                 {groupedLists.admin.map((list, index) => {
                   const roleStyles = getRoleBadgeStyles("admin");
                   return (
                     <div key={list._id}>
-                      {index > 0 && (
+                      {index > 0 && !isSidebarCollapsed && (
                         <div className={`border-t my-2 ${roleStyles.separator}`} />
                       )}
                       <div
-                        className={`w-full rounded-lg border px-3 py-3 transition-colors flex items-start gap-2
-                      ${selectedListId === list._id
+                        className={`w-full rounded-lg border transition-colors flex items-start gap-2 ${
+                          isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
+                        } ${selectedListId === list._id
                             ? roleStyles.active
                             : roleStyles.inactive
                           }`}
@@ -604,19 +644,30 @@ export default function DashboardPage() {
                             setSelectedListId(list._id);
                             setIsSidebarOpen(false);
                           }}
-                          className="flex-1 text-left cursor-pointer flex flex-col items-start gap-1.5 min-w-0"
+                          className={`text-left cursor-pointer flex items-start gap-1.5 ${
+                            isSidebarCollapsed ? "flex-col items-center" : "flex-1 flex-col min-w-0"
+                          }`}
+                          title={isSidebarCollapsed ? list.name : undefined}
                         >
-                          <div className="w-full font-medium truncate">{list.name}</div>
-
-                          {list.description && (
-                            <div className="w-full text-sm text-muted-foreground line-clamp-2">
-                              {list.description}
+                          {isSidebarCollapsed ? (
+                            <div className="w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-sm">
+                              {list.name.charAt(0).toUpperCase()}
                             </div>
-                          )}
+                          ) : (
+                            <>
+                              <div className="w-full font-medium truncate">{list.name}</div>
 
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
-                            Admin
-                          </span>
+                              {list.description && (
+                                <div className="w-full text-sm text-muted-foreground line-clamp-2">
+                                  {list.description}
+                                </div>
+                              )}
+
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
+                                Admin
+                              </span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -628,19 +679,22 @@ export default function DashboardPage() {
             {/* Viewer Lists */}
             {groupedLists.viewer.length > 0 && (
               <div className="space-y-2">
-                <div className={`text-xs font-semibold uppercase tracking-wider px-2 ${getRoleBadgeStyles("viewer").section}`}>
-                  View Only
-                </div>
+                {!isSidebarCollapsed && (
+                  <div className={`text-xs font-semibold uppercase tracking-wider px-2 ${getRoleBadgeStyles("viewer").section}`}>
+                    View Only
+                  </div>
+                )}
                 {groupedLists.viewer.map((list, index) => {
                   const roleStyles = getRoleBadgeStyles("viewer");
                   return (
                     <div key={list._id}>
-                      {index > 0 && (
+                      {index > 0 && !isSidebarCollapsed && (
                         <div className={`border-t my-2 ${roleStyles.separator}`} />
                       )}
                       <div
-                        className={`w-full rounded-lg border px-3 py-3 transition-colors flex items-start gap-2
-                      ${selectedListId === list._id
+                        className={`w-full rounded-lg border transition-colors flex items-start gap-2 ${
+                          isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
+                        } ${selectedListId === list._id
                             ? roleStyles.active
                             : roleStyles.inactive
                           }`}
@@ -650,19 +704,30 @@ export default function DashboardPage() {
                             setSelectedListId(list._id);
                             setIsSidebarOpen(false);
                           }}
-                          className="flex-1 text-left cursor-pointer flex flex-col items-start gap-1.5 min-w-0"
+                          className={`text-left cursor-pointer flex items-start gap-1.5 ${
+                            isSidebarCollapsed ? "flex-col items-center" : "flex-1 flex-col min-w-0"
+                          }`}
+                          title={isSidebarCollapsed ? list.name : undefined}
                         >
-                          <div className="w-full font-medium truncate">{list.name}</div>
-
-                          {list.description && (
-                            <div className="w-full text-sm text-muted-foreground line-clamp-2">
-                              {list.description}
+                          {isSidebarCollapsed ? (
+                            <div className="w-8 h-8 rounded-full bg-slate-500 text-white flex items-center justify-center font-bold text-sm">
+                              {list.name.charAt(0).toUpperCase()}
                             </div>
-                          )}
+                          ) : (
+                            <>
+                              <div className="w-full font-medium truncate">{list.name}</div>
 
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
-                            Viewer
-                          </span>
+                              {list.description && (
+                                <div className="w-full text-sm text-muted-foreground line-clamp-2">
+                                  {list.description}
+                                </div>
+                              )}
+
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
+                                Viewer
+                              </span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
