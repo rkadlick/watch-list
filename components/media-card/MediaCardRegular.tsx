@@ -27,6 +27,7 @@ import { MediaCardProps, MediaCardInnerProps, StatusValue, statusColors, statusL
 import { getMediaBlurPlaceholder } from "@/lib/image-utils";
 import { PlatformLogo } from "@/components/PlatformLogo";
 import { deduplicateProviders } from "@/lib/providers";
+import { calculateTVStatus } from "@/lib/tv-status";
 
 interface MediaCardRegularComponentProps extends MediaCardInnerProps {
   size?: MediaCardProps["size"];
@@ -76,6 +77,11 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
 
   const { media, status, rating, priority: itemPriority, tags, startedAt, finishedAt, notes, _creationTime } = listItem;
   if (!media) return null;
+
+  // For TV shows, calculate the display status based on visible seasons
+  const displayStatus = media.type === "tv"
+    ? calculateTVStatus(media.seasonData, listItem.seasonProgress, status)
+    : status;
 
   const config =
     size === "large"
@@ -199,7 +205,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
             <div className="flex items-center gap-2 flex-wrap">
               {media.type === "movie" && canEdit ? (
                 <StatusMenu
-                  value={status}
+                  value={displayStatus}
                   onChange={handleStatusChange}
                   options={Object.entries(statusLabels).map(([value, label]) => ({
                     value: value as StatusValue,
@@ -209,8 +215,8 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                   disabled={isUpdatingStatus}
                 />
               ) : (
-                <Badge className={`${statusColors[status]} ${config.badgeSize}`}>
-                  {statusLabels[status]}
+                <Badge className={`${statusColors[displayStatus]} ${config.badgeSize}`}>
+                  {statusLabels[displayStatus]}
                 </Badge>
               )}
 
@@ -263,7 +269,6 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                   className="flex items-center gap-2"
                   title="Watch Providers"
                 >
-                  <PlayCircle className={`${config.iconSize} text-muted-foreground`} />
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {deduplicated.slice(0, displayCount).map((p) => (
                       <PlatformLogo
@@ -326,7 +331,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
 
       {/* TABBED BODY (TV shows only) */}
       {media.type === "tv" && (
-        <CardContent className="pt-0 pb-3 px-3">
+        <CardContent className="pt-4 pb-3 px-3">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 h-9">
               <TabsTrigger value="seasons" className="text-sm gap-1.5">
@@ -388,7 +393,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
       {/* MOVIES: Just show Movie Info form inline (no seasons) */}
       {media.type === "movie" && (
         <CardContent className="pt-0 pb-3 px-3">
-          <details className="group border-t border-border/50 pt-3">
+          <details className="group pt-2">
             <summary className="list-none bg-muted rounded-lg p-1 cursor-pointer select-none [&::-webkit-details-marker]:hidden">
               <div className="flex items-center justify-center gap-2 rounded-md py-1.5 text-sm font-medium transition-all text-muted-foreground hover:text-foreground group-open:bg-background group-open:text-foreground group-open:shadow-sm">
                 <FileText className="h-4 w-4" />
@@ -396,7 +401,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                 <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180 opacity-50 group-open:opacity-100" />
               </div>
             </summary>
-            <div className="pt-3 pb-1 border-t border-border/30 mt-2">
+            <div className="pt-3 pb-1 mt-2">
               <TrackingForm
                 canEdit={canEdit}
                 startedAt={startedAt}

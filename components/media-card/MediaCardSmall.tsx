@@ -28,6 +28,7 @@ import { useState } from "react";
 import { getMediaBlurPlaceholder } from "@/lib/image-utils";
 import { PlatformLogo } from "@/components/PlatformLogo";
 import { deduplicateProviders } from "@/lib/providers";
+import { calculateTVStatus } from "@/lib/tv-status";
 
 interface MediaCardSmallProps extends MediaCardInnerProps {
   priority?: boolean; // For priority loading
@@ -77,6 +78,11 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
 
   const [showAllProviders, setShowAllProviders] = useState(false);
   if (!media) return null;
+
+  // For TV shows, calculate the display status based on visible seasons
+  const displayStatus = media.type === "tv"
+    ? calculateTVStatus(media.seasonData, listItem.seasonProgress, status)
+    : status;
 
   const config = {
     posterWidth: "w-20",
@@ -188,7 +194,7 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
           <div className="flex items-center gap-2">
             {media.type === "movie" && canEdit ? (
               <StatusMenu
-                value={status}
+                value={displayStatus}
                 onChange={handleStatusChange}
                 options={Object.entries(statusLabels).map(([value, label]) => ({
                   value: value as StatusValue,
@@ -198,8 +204,8 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
                 disabled={isUpdatingStatus}
               />
             ) : (
-              <Badge className={`${statusColors[status]} ${config.badgeSize}`}>
-                {statusLabels[status]}
+              <Badge className={`${statusColors[displayStatus]} ${config.badgeSize}`}>
+                {statusLabels[displayStatus]}
               </Badge>
             )}
             {canEdit && (
@@ -236,7 +242,6 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
                 className="flex items-center gap-2"
                 title="Watch Providers"
               >
-                <PlayCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {deduplicated.slice(0, displayCount).map((p) => (
                     <PlatformLogo
@@ -312,7 +317,7 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
 
       {/* TABBED BODY (TV shows only) */}
       {media.type === "tv" && (
-        <CardContent className="pt-0 pb-2 px-3">
+        <CardContent className="pt-4 pb-2 px-3">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 h-8 bg-muted/50 p-0.5 rounded-md">
               <TabsTrigger
@@ -380,15 +385,15 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
       {/* MOVIES: Just show Movie Info form inline (no seasons) */}
       {media.type === "movie" && (
         <CardContent className="pt-0 pb-2 px-3">
-          <details className="group border-t border-border/50 pt-2">
-            <summary className="list-none bg-muted rounded-lg p-0.5 mt-2 cursor-pointer select-none [&::-webkit-details-marker]:hidden">
+          <details className="group pt-2">
+            <summary className="list-none bg-muted rounded-lg p-0.5 cursor-pointer select-none [&::-webkit-details-marker]:hidden">
               <div className="flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-medium transition-all text-muted-foreground hover:text-foreground group-open:bg-background group-open:text-foreground group-open:shadow-sm">
                 <FileText className="h-3.5 w-3.5" />
                 <span>Movie Info</span>
                 <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180 opacity-50 group-open:opacity-100" />
               </div>
             </summary>
-            <div className="pt-3 pb-1 border-t border-border/30 mt-2">
+            <div className="pt-3 pb-1 mt-2">
               <TrackingForm
                 canEdit={canEdit}
                 startedAt={startedAt}
