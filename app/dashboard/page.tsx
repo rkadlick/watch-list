@@ -334,7 +334,15 @@ export default function DashboardPage() {
       name: newListName,
       description: newListDescription || undefined,
     });
+
+    // Clear form fields
     setNewListName("");
+    setNewListDescription("");
+
+    // Close the dialog
+    setIsCreateListOpen(false);
+
+    // Select the newly created list
     setSelectedListId(listId);
   };
 
