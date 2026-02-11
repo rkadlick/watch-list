@@ -152,14 +152,90 @@ export default function DashboardPage() {
     }
   }, [isLoaded, user, syncUser]);
 
-  // Auto-select first list if available
+  // Helper function to get list role
+  function getListRole(
+    list: {
+      ownerId: string;
+      members?: Array<{ clerkId: string; role: string }>;
+    },
+    userId: string | null | undefined
+  ): "creator" | "admin" | "viewer" | null {
+    if (!userId) return null;
+    if (list.ownerId === userId) return "creator";
+    const member = list.members?.find((m) => m.clerkId === userId);
+    return (member?.role as "admin" | "viewer") ?? null;
+  }
+
+  // Group and sort lists by role
+  const groupedLists = useMemo(() => {
+    if (!lists || !user) return { creator: [], admin: [], viewer: [] };
+
+    const grouped = {
+      creator: [] as typeof lists,
+      admin: [] as typeof lists,
+      viewer: [] as typeof lists,
+    };
+
+    lists.forEach((list) => {
+      const role = getListRole(list, user.id);
+      if (role && grouped[role]) {
+        grouped[role].push(list);
+      }
+    });
+
+    // Sort each group by creation time (most recent first)
+    // TODO: Update to use lastModified or lastAccessedAt when available
+    Object.keys(grouped).forEach((key) => {
+      grouped[key as keyof typeof grouped].sort(
+        (a, b) => (b._creationTime || 0) - (a._creationTime || 0)
+      );
+    });
+
+    return grouped;
+  }, [lists, user]);
+
+  // Get role badge styling
+  const getRoleBadgeStyles = (role: "creator" | "admin" | "viewer") => {
+    const styles = {
+      creator: {
+        badge: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+        section: "text-blue-600 dark:text-blue-400",
+        active: "border-blue-500 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/50",
+        inactive: "border-transparent hover:border-border hover:bg-muted/60",
+        separator: "border-blue-100 dark:border-blue-900/30",
+      },
+      admin: {
+        badge: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800",
+        section: "text-purple-600 dark:text-purple-400",
+        active: "border-purple-500 bg-purple-50 dark:border-purple-600 dark:bg-purple-950/50",
+        inactive: "border-transparent hover:border-border hover:bg-muted/60",
+        separator: "border-purple-100 dark:border-purple-900/30",
+      },
+      viewer: {
+        badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700",
+        section: "text-slate-600 dark:text-slate-400",
+        active: "border-slate-500 bg-slate-50 dark:border-slate-600 dark:bg-slate-900/50",
+        inactive: "border-transparent hover:border-border hover:bg-muted/60",
+        separator: "border-slate-100 dark:border-slate-700/30",
+      },
+    };
+    return styles[role];
+  };
+
+  // Auto-select first list if available (prioritize by role: creator > admin > viewer)
   useEffect(() => {
     if (lists && lists.length > 0 && !selectedListId) {
       setTimeout(() => {
-        setSelectedListId(lists[0]._id);
+        const firstList =
+          groupedLists.creator[0] ||
+          groupedLists.admin[0] ||
+          groupedLists.viewer[0];
+        if (firstList) {
+          setSelectedListId(firstList._id);
+        }
       }, 0);
     }
-  }, [lists, selectedListId]);
+  }, [lists, selectedListId, groupedLists]);
 
   // Get list items
   const listItems = useQuery(
@@ -240,19 +316,6 @@ export default function DashboardPage() {
   }, [selectedList, user]);
 
   const canEdit = currentRole === "creator" || currentRole === "admin";
-
-  function getListRole(
-    list: {
-      ownerId: string;
-      members?: Array<{ clerkId: string; role: string }>;
-    },
-    userId: string | null | undefined
-  ): "creator" | "admin" | "viewer" | null {
-    if (!userId) return null;
-    if (list.ownerId === userId) return "creator";
-    const member = list.members?.find((m) => m.clerkId === userId);
-    return (member?.role as "admin" | "viewer") ?? null;
-  }
 
   const handleDeleteList = async () => {
     if (!selectedList) return;
@@ -419,87 +482,186 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
-          <div className="space-y-2">
-            {lists?.map((list) => {
-              const listRole = getListRole(list, user?.id);
-              const isCreator = list.ownerId === user?.id;
-              return (
-                <div
-                  key={list._id}
-                  className={`w-full rounded-lg border px-3 py-3 transition-colors flex items-start gap-2
-                ${selectedListId === list._id
-                      ? "border-primary/60 bg-primary/5 text-primary"
-                      : "border-transparent hover:border-border hover:bg-muted/60"
-                    }`}
-                >
-                  <button
-                    onClick={() => {
-                      setSelectedListId(list._id);
-                      setIsSidebarOpen(false);
-                    }}
-                    className="flex-1 text-left cursor-pointer flex flex-col items-start gap-1 min-w-0"
-                  >
-                    <div className="w-full font-medium truncate">{list.name}</div>
-
-                    {list.description && (
-                      <div className="w-full text-sm text-muted-foreground line-clamp-2">
-                        {list.description}
-                      </div>
-                    )}
-
-                    <div className="w-full text-xs text-muted-foreground capitalize">
-                      {listRole === "creator"
-                        ? "Creator"
-                        : listRole === "admin"
-                          ? "Admin"
-                          : listRole === "viewer"
-                            ? "Viewer"
-                            : "Unknown"}
-                    </div>
-                  </button>
-
-                  {isCreator && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-red-600 flex-shrink-0"
-                          title="Delete list"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete List</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will permanently delete &ldquo;{list.name}&rdquo; and all items. This cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => {
-                              if (selectedListId === list._id) {
-                                handleDeleteList();
-                              } else {
-                                deleteList({ listId: list._id });
-                              }
-                            }}
-                            disabled={isDeletingList}
-                          >
-                            <Trash className="h-3 w-3 mr-1" />
-                            {isDeletingList ? "Deleting..." : "Delete"}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
+          <div className="space-y-4">
+            {/* Creator Lists */}
+            {groupedLists.creator.length > 0 && (
+              <div className="space-y-2">
+                <div className={`text-xs font-semibold uppercase tracking-wider px-2 ${getRoleBadgeStyles("creator").section}`}>
+                  Created by You
                 </div>
-              );
-            })}
+                {groupedLists.creator.map((list, index) => {
+                  const listRole = getListRole(list, user?.id);
+                  const isCreator = list.ownerId === user?.id;
+                  const roleStyles = getRoleBadgeStyles("creator");
+                  return (
+                    <div key={list._id}>
+                      {index > 0 && (
+                        <div className={`border-t my-2 ${roleStyles.separator}`} />
+                      )}
+                      <div
+                        className={`w-full rounded-lg border px-3 py-3 transition-colors flex items-start gap-2
+                      ${selectedListId === list._id
+                            ? roleStyles.active
+                            : roleStyles.inactive
+                          }`}
+                      >
+                      <button
+                        onClick={() => {
+                          setSelectedListId(list._id);
+                          setIsSidebarOpen(false);
+                        }}
+                        className="flex-1 text-left cursor-pointer flex flex-col items-start gap-1.5 min-w-0"
+                      >
+                        <div className="w-full font-medium truncate">{list.name}</div>
+
+                        {list.description && (
+                          <div className="w-full text-sm text-muted-foreground line-clamp-2">
+                            {list.description}
+                          </div>
+                        )}
+
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
+                          Creator
+                        </span>
+                      </button>
+
+                      {isCreator && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-red-600 flex-shrink-0"
+                              title="Delete list"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete List</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete &ldquo;{list.name}&rdquo; and all items. This cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => {
+                                  if (selectedListId === list._id) {
+                                    handleDeleteList();
+                                  } else {
+                                    deleteList({ listId: list._id });
+                                  }
+                                }}
+                                disabled={isDeletingList}
+                              >
+                                <Trash className="h-3 w-3 mr-1" />
+                                {isDeletingList ? "Deleting..." : "Delete"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Admin Lists */}
+            {groupedLists.admin.length > 0 && (
+              <div className="space-y-2">
+                <div className={`text-xs font-semibold uppercase tracking-wider px-2 ${getRoleBadgeStyles("admin").section}`}>
+                  Admin Access
+                </div>
+                {groupedLists.admin.map((list, index) => {
+                  const roleStyles = getRoleBadgeStyles("admin");
+                  return (
+                    <div key={list._id}>
+                      {index > 0 && (
+                        <div className={`border-t my-2 ${roleStyles.separator}`} />
+                      )}
+                      <div
+                        className={`w-full rounded-lg border px-3 py-3 transition-colors flex items-start gap-2
+                      ${selectedListId === list._id
+                            ? roleStyles.active
+                            : roleStyles.inactive
+                          }`}
+                      >
+                        <button
+                          onClick={() => {
+                            setSelectedListId(list._id);
+                            setIsSidebarOpen(false);
+                          }}
+                          className="flex-1 text-left cursor-pointer flex flex-col items-start gap-1.5 min-w-0"
+                        >
+                          <div className="w-full font-medium truncate">{list.name}</div>
+
+                          {list.description && (
+                            <div className="w-full text-sm text-muted-foreground line-clamp-2">
+                              {list.description}
+                            </div>
+                          )}
+
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
+                            Admin
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Viewer Lists */}
+            {groupedLists.viewer.length > 0 && (
+              <div className="space-y-2">
+                <div className={`text-xs font-semibold uppercase tracking-wider px-2 ${getRoleBadgeStyles("viewer").section}`}>
+                  View Only
+                </div>
+                {groupedLists.viewer.map((list, index) => {
+                  const roleStyles = getRoleBadgeStyles("viewer");
+                  return (
+                    <div key={list._id}>
+                      {index > 0 && (
+                        <div className={`border-t my-2 ${roleStyles.separator}`} />
+                      )}
+                      <div
+                        className={`w-full rounded-lg border px-3 py-3 transition-colors flex items-start gap-2
+                      ${selectedListId === list._id
+                            ? roleStyles.active
+                            : roleStyles.inactive
+                          }`}
+                      >
+                        <button
+                          onClick={() => {
+                            setSelectedListId(list._id);
+                            setIsSidebarOpen(false);
+                          }}
+                          className="flex-1 text-left cursor-pointer flex flex-col items-start gap-1.5 min-w-0"
+                        >
+                          <div className="w-full font-medium truncate">{list.name}</div>
+
+                          {list.description && (
+                            <div className="w-full text-sm text-muted-foreground line-clamp-2">
+                              {list.description}
+                            </div>
+                          )}
+
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
+                            Viewer
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
