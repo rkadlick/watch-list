@@ -27,6 +27,7 @@ import { MediaCardInnerProps, StatusValue, statusColors, statusLabels } from "./
 import { useState } from "react";
 import { getMediaBlurPlaceholder } from "@/lib/image-utils";
 import { PlatformLogo } from "@/components/PlatformLogo";
+import { deduplicateProviders } from "@/lib/providers";
 
 interface MediaCardSmallProps extends MediaCardInnerProps {
   priority?: boolean; // For priority loading
@@ -225,46 +226,39 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
           </div>
 
           {/* ROW 3: Watch providers */}
-          {media.watchProviders && media.watchProviders.length > 0 && (
-            <div
-              className="flex items-center gap-2"
-              title="Watch Providers"
-            >
-              <PlayCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {media.watchProviders
-                  .sort((a, b) => a.displayPriority - b.displayPriority)
-                  // Deduplicate and normalize providers
-                  .reduce((acc, p) => {
-                    const normalized = p.providerName
-                      .replace(/\s+Standard(\s+with\s+Ads)?$/i, "")
-                      .replace(/\s+with\s+Ads$/i, "")
-                      .trim();
-                    if (!acc.some(exist => exist.normalizedName === normalized)) {
-                      acc.push({ ...p, normalizedName: normalized });
-                    }
-                    return acc;
-                  }, [] as any[])
-                  .slice(0, showAllProviders ? undefined : 4)
-                  .map((p) => (
+          {media.watchProviders && media.watchProviders.length > 0 && (() => {
+            const sortedProviders = [...media.watchProviders].sort((a, b) => a.displayPriority - b.displayPriority);
+            const deduplicated = deduplicateProviders(sortedProviders);
+            const displayCount = showAllProviders ? deduplicated.length : Math.min(4, deduplicated.length);
+
+            return (
+              <div
+                className="flex items-center gap-2"
+                title="Watch Providers"
+              >
+                <PlayCircle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {deduplicated.slice(0, displayCount).map((p) => (
                     <PlatformLogo
                       key={p.providerId}
                       providerName={p.normalizedName}
-                      size={24}
+                      logoPath={p.logoPath}
+                      size={26}
                     />
                   ))}
-                {!showAllProviders && media.watchProviders.length > 4 && (
-                  <Badge
-                    variant="secondary"
-                    className="text-xs px-1.5 py-0 h-6 cursor-pointer hover:bg-secondary/80"
-                    onClick={() => setShowAllProviders(true)}
-                  >
-                    +{media.watchProviders.length - 4}
-                  </Badge>
-                )}
+                  {!showAllProviders && deduplicated.length > 4 && (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs px-1.5 py-0 h-6 cursor-pointer hover:bg-secondary/80"
+                      onClick={() => setShowAllProviders(true)}
+                    >
+                      +{deduplicated.length - 4}
+                    </Badge>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ROW 3.5: Date (Watched for movies, Started for shows) */}
           {(media.type === "movie" && finishedAt) || (media.type === "tv" && startedAt) ? (

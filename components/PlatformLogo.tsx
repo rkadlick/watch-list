@@ -2,10 +2,14 @@ import Image from "next/image";
 
 interface PlatformLogoProps {
   providerName: string;
+  logoPath?: string;
   size?: number;
 }
 
-// Map of provider names to logo colors/styles
+// TMDB image base URL for provider logos
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
+
+// Map of provider names to logo colors/styles (fallback when logoPath is not available)
 const platformStyles: Record<string, { bg: string; text: string; abbr: string }> = {
   "netflix": { bg: "#E50914", text: "#FFFFFF", abbr: "N" },
   "hulu": { bg: "#1CE783", text: "#000000", abbr: "H" },
@@ -39,7 +43,27 @@ const platformStyles: Record<string, { bg: string; text: string; abbr: string }>
   "funimation": { bg: "#410099", text: "#FFFFFF", abbr: "FUNI" },
 };
 
-export function PlatformLogo({ providerName, size = 28 }: PlatformLogoProps) {
+export function PlatformLogo({ providerName, logoPath, size = 28 }: PlatformLogoProps) {
+  // If we have a logoPath from TMDB, use that
+  if (logoPath) {
+    return (
+      <div
+        className="relative flex-shrink-0 rounded overflow-hidden"
+        style={{ width: size, height: size }}
+        title={providerName}
+      >
+        <Image
+          src={`${TMDB_IMAGE_BASE}${logoPath}`}
+          alt={providerName}
+          width={size}
+          height={size}
+          className="object-contain"
+        />
+      </div>
+    );
+  }
+
+  // Fallback to colored abbreviation if no logoPath
   const normalizedName = providerName.toLowerCase().trim();
   const platform = platformStyles[normalizedName] || {
     bg: "#6B7280",
