@@ -109,20 +109,20 @@ export function ShareListDialog({
     switch (role) {
       case "owner":
         return (
-          <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700">
+          <Badge className="role-creator">
             <Crown className="h-3 w-3 mr-1" />
             Creator
           </Badge>
         );
       case "admin":
         return (
-          <Badge className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700">
+          <Badge className="role-admin">
             Admin
           </Badge>
         );
       case "viewer":
         return (
-          <Badge className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700">
+          <Badge className="role-viewer">
             Viewer
           </Badge>
         );
@@ -144,7 +144,7 @@ export function ShareListDialog({
           {/* Add Member Section */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-foreground">Add Member</h3>
-            <div className="relative">
+            <div className="relative mb-8 px-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={searchEmail}
@@ -155,7 +155,7 @@ export function ShareListDialog({
               {searchEmail && (
                 <button
                   onClick={() => setSearchEmail("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -225,7 +225,7 @@ export function ShareListDialog({
             </div>
 
             {allMembers.length > 0 ? (
-              <div className="space-y-2">
+              <div className="divide-y divide-border">
                 {allMembers.map((member) => {
                   const isOwner = member.role === "owner";
                   const isExpanded = expandedMemberId === member.clerkId;
@@ -234,8 +234,8 @@ export function ShareListDialog({
                     <div
                       key={member.clerkId}
                       className={cn(
-                        "rounded-lg border bg-card transition-all",
-                        isOwner && "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+                        "transition-all",
+                        isOwner && "bg-primary-50/50 dark:bg-primary-950/20"
                       )}
                     >
                       {/* Member Row */}

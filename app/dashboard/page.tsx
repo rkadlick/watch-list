@@ -1141,6 +1141,7 @@ export default function DashboardPage() {
           selectedListId={selectedListId}
           lists={lists ?? []}
           onListSelect={(listId) => setSelectedListId(listId)}
+          currentUserId={user?.id}
         />
 
         <Dialog open={isCreateListOpen} onOpenChange={setIsCreateListOpen}>

@@ -30,8 +30,9 @@ interface AddMediaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedListId: Id<"lists"> | null;
-  lists?: Array<{ _id: Id<"lists">; name: string }>;
+  lists?: Array<{ _id: Id<"lists">; name: string; ownerId: string }>;
   onListSelect?: (listId: Id<"lists">) => void;
+  currentUserId?: string;
 }
 
 export function AddMediaModal({
@@ -40,6 +41,7 @@ export function AddMediaModal({
   selectedListId,
   lists = [],
   onListSelect,
+  currentUserId,
 }: AddMediaModalProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -187,7 +189,11 @@ export function AddMediaModal({
     }
   };
 
-  const listIsSelectable = lists && lists.length > 0;
+  // Filter lists to only show creator-owned lists
+  const creatorLists = currentUserId
+    ? lists.filter(list => list.ownerId === currentUserId)
+    : lists;
+  const listIsSelectable = creatorLists && creatorLists.length > 0;
   const paginatedResults = searchResults.slice(0, visibleCount);
 
   return (
@@ -267,9 +273,9 @@ export function AddMediaModal({
                       return (
                         <Card
                           key={item.id}
-                          className={`cursor-pointer transition-all ${selectedMedia?.id === item.id
-                            ? "ring-2 ring-primary"
-                            : "hover:shadow-md"
+                          className={`cursor-pointer transition-all border-2 bg-background ${selectedMedia?.id === item.id
+                            ? "ring-[3px] ring-primary bg-primary/5 shadow-lg scale-[1.02]"
+                            : "hover:shadow-md hover:scale-[1.01]"
                             }`}
                           onClick={() => setSelectedMedia(item)}
                         >
@@ -324,9 +330,9 @@ export function AddMediaModal({
             )}
           </div>
 
-          <div className="flex items-center gap-3 border-t pt-3 bg-background sticky bottom-0">
+          <div className="flex items-center gap-4 border-t pt-6 pb-4 px-4 sticky bottom-0" >
             <div className="flex-1">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
                 Add to list
               </div>
               {listIsSelectable ? (
@@ -338,11 +344,11 @@ export function AddMediaModal({
                     onListSelect?.(next);
                   }}
                 >
-                  <SelectTrigger className="mt-1">
+                  <SelectTrigger>
                     <SelectValue placeholder="Choose a list" />
                   </SelectTrigger>
                   <SelectContent>
-                    {lists.map((list) => (
+                    {creatorLists.map((list) => (
                       <SelectItem key={list._id} value={list._id}>
                         {list.name}
                       </SelectItem>
@@ -350,13 +356,13 @@ export function AddMediaModal({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="mt-1 text-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground">
                   Create a list first to add media.
                 </div>
               )}
             </div>
             <Button
-              className="whitespace-nowrap"
+              className="whitespace-nowrap self-end"
               onClick={() => {
                 if (selectedMedia && targetListId) {
                   handleAddToList(targetListId);
