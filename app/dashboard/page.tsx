@@ -441,12 +441,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground w-full max-w-full overflow-x-hidden">
-      {/* Sidebar */}
+    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
+      {/* Sidebar - fixed to side, has its own scroll if needed */}
       <div
-        className={`fixed inset-y-0 left-0 z-30 border-r bg-sidebar text-sidebar-foreground transition-all duration-200 md:static md:translate-x-0 ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } ${isSidebarCollapsed ? "md:w-16" : "md:w-72"} w-72`}
+        className={`fixed inset-y-0 left-0 z-30 border-r bg-sidebar text-sidebar-foreground transition-all duration-200 md:static md:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          } ${isSidebarCollapsed ? "md:w-16" : "md:w-72"} w-72 flex flex-col h-screen md:h-full shrink-0`}
       >
         <div className="flex items-center justify-between bg-gradient-to-b from-sidebar/50 to-transparent px-4 py-4 pb-6">
           {!isSidebarCollapsed && (
@@ -509,7 +508,7 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        <div className={`flex-1 overflow-y-auto ${isSidebarCollapsed ? "p-2" : "p-3"}`}>
+        <div className={`flex-1 min-h-0 overflow-y-auto ${isSidebarCollapsed ? "p-2" : "p-3"}`}>
           <div className="space-y-4">
             {/* Creator Lists */}
             {groupedLists.creator.length > 0 && (
@@ -529,79 +528,77 @@ export default function DashboardPage() {
                         <div className="h-2" />
                       )}
                       <div
-                        className={`w-full rounded-lg transition-all flex items-start gap-2 ${
-                          isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
-                        } ${selectedListId === list._id
+                        className={`w-full rounded-lg transition-all flex items-start gap-2 ${isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
+                          } ${selectedListId === list._id
                             ? roleStyles.active
                             : roleStyles.inactive
                           }`}
                       >
-                      <button
-                        onClick={() => {
-                          setSelectedListId(list._id);
-                          setIsSidebarOpen(false);
-                        }}
-                        className={`text-left cursor-pointer flex items-start gap-1.5 ${
-                          isSidebarCollapsed ? "flex-col items-center" : "flex-1 flex-col min-w-0"
-                        }`}
-                        title={isSidebarCollapsed ? list.name : undefined}
-                      >
-                        {isSidebarCollapsed ? (
-                          <div className="w-8 h-8 rounded-full bg-[var(--primary-600)] dark:bg-[var(--primary-400)] text-[var(--neutral-50)] dark:text-[var(--neutral-800)] flex items-center justify-center font-bold text-sm shadow-sm">
-                            {list.name.charAt(0).toUpperCase()}
-                          </div>
-                        ) : (
-                          <>
-                            <div className="w-full font-medium truncate">{list.name}</div>
+                        <button
+                          onClick={() => {
+                            setSelectedListId(list._id);
+                            setIsSidebarOpen(false);
+                          }}
+                          className={`text-left cursor-pointer flex items-start gap-1.5 ${isSidebarCollapsed ? "flex-col items-center" : "flex-1 flex-col min-w-0"
+                            }`}
+                          title={isSidebarCollapsed ? list.name : undefined}
+                        >
+                          {isSidebarCollapsed ? (
+                            <div className="w-8 h-8 rounded-full bg-[var(--primary-600)] dark:bg-[var(--primary-400)] text-[var(--neutral-50)] dark:text-[var(--neutral-800)] flex items-center justify-center font-bold text-sm shadow-sm">
+                              {list.name.charAt(0).toUpperCase()}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="w-full font-medium truncate">{list.name}</div>
 
-                            {list.description && (
-                              <div className="w-full text-sm text-muted-foreground line-clamp-2">
-                                {list.description}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </button>
+                              {list.description && (
+                                <div className="w-full text-sm text-muted-foreground line-clamp-2">
+                                  {list.description}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </button>
 
-                      {isCreator && !isSidebarCollapsed && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground flex-shrink-0 rounded-md group"
-                              title="Delete list"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Trash className="h-4 w-4 transition-colors group-hover:text-[var(--danger-600)] dark:group-hover:text-[var(--danger-400)]" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete List</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete &ldquo;{list.name}&rdquo; and all items. This cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => {
-                                  if (selectedListId === list._id) {
-                                    handleDeleteList();
-                                  } else {
-                                    deleteList({ listId: list._id });
-                                  }
-                                }}
-                                disabled={isDeletingList}
+                        {isCreator && !isSidebarCollapsed && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground flex-shrink-0 rounded-md group"
+                                title="Delete list"
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <Trash className="h-3 w-3 mr-1" />
-                                {isDeletingList ? "Deleting..." : "Delete"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
+                                <Trash className="h-4 w-4 transition-colors group-hover:text-[var(--danger-600)] dark:group-hover:text-[var(--danger-400)]" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete List</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete &ldquo;{list.name}&rdquo; and all items. This cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => {
+                                    if (selectedListId === list._id) {
+                                      handleDeleteList();
+                                    } else {
+                                      deleteList({ listId: list._id });
+                                    }
+                                  }}
+                                  disabled={isDeletingList}
+                                >
+                                  <Trash className="h-3 w-3 mr-1" />
+                                  {isDeletingList ? "Deleting..." : "Delete"}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
                     </div>
                   );
@@ -625,9 +622,8 @@ export default function DashboardPage() {
                         <div className="h-2" />
                       )}
                       <div
-                        className={`w-full rounded-lg transition-all flex items-start gap-2 ${
-                          isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
-                        } ${selectedListId === list._id
+                        className={`w-full rounded-lg transition-all flex items-start gap-2 ${isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
+                          } ${selectedListId === list._id
                             ? roleStyles.active
                             : roleStyles.inactive
                           }`}
@@ -637,9 +633,8 @@ export default function DashboardPage() {
                             setSelectedListId(list._id);
                             setIsSidebarOpen(false);
                           }}
-                          className={`text-left cursor-pointer flex items-start gap-1.5 ${
-                            isSidebarCollapsed ? "flex-col items-center" : "flex-1 flex-col min-w-0"
-                          }`}
+                          className={`text-left cursor-pointer flex items-start gap-1.5 ${isSidebarCollapsed ? "flex-col items-center" : "flex-1 flex-col min-w-0"
+                            }`}
                           title={isSidebarCollapsed ? list.name : undefined}
                         >
                           {isSidebarCollapsed ? (
@@ -681,9 +676,8 @@ export default function DashboardPage() {
                         <div className="h-2" />
                       )}
                       <div
-                        className={`w-full rounded-lg transition-all flex items-start gap-2 ${
-                          isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
-                        } ${selectedListId === list._id
+                        className={`w-full rounded-lg transition-all flex items-start gap-2 ${isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
+                          } ${selectedListId === list._id
                             ? roleStyles.active
                             : roleStyles.inactive
                           }`}
@@ -693,9 +687,8 @@ export default function DashboardPage() {
                             setSelectedListId(list._id);
                             setIsSidebarOpen(false);
                           }}
-                          className={`text-left cursor-pointer flex items-start gap-1.5 ${
-                            isSidebarCollapsed ? "flex-col items-center" : "flex-1 flex-col min-w-0"
-                          }`}
+                          className={`text-left cursor-pointer flex items-start gap-1.5 ${isSidebarCollapsed ? "flex-col items-center" : "flex-1 flex-col min-w-0"
+                            }`}
                           title={isSidebarCollapsed ? list.name : undefined}
                         >
                           {isSidebarCollapsed ? (
@@ -732,183 +725,370 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-0 w-full max-w-full overflow-x-hidden">
-        {/* Unified Header */}
-        <div className="bg-card/80 dark:bg-card/60 backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setIsSidebarOpen(true)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <div>
-              <div className="text-lg font-semibold">
-                {selectedList?.name ?? "Select a list"}
+      {/* Main Content Area - fixed header, scrollable media list */}
+      <div className="flex-1 flex flex-col h-full min-h-0 overflow-hidden min-w-0 bg-background/50">
+        {/* HEADER - fixed at top */}
+        <div className="shrink-0 z-20 bg-background/95 backdrop-blur-sm">
+          {/* Unified Header */}
+          <div className="bg-card/80 dark:bg-card/60">
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="md:hidden"
+                  onClick={() => setIsSidebarOpen(true)}
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+                <div>
+                  <div className="text-lg font-semibold">
+                    {selectedList?.name ?? "Select a list"}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 md:gap-2">
+                {/* Edit button - all sizes, with outline, text on desktop */}
+                {canEdit && selectedList && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="md:hidden h-9 w-9"
+                      onClick={() => setIsEditListDialogOpen(true)}
+                      title="Edit list"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="hidden md:flex"
+                      onClick={() => setIsEditListDialogOpen(true)}
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  </>
+                )}
+
+                {/* Manage Members - all sizes, text on desktop */}
+                {canEdit && selectedList && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="md:hidden h-9 w-9"
+                      onClick={() => setIsShareListOpen(true)}
+                      title="Manage members"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="hidden md:flex"
+                      onClick={() => setIsShareListOpen(true)}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2"
+                      >
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                      Manage Members
+                    </Button>
+                  </>
+                )}
+
+                {/* Export - Icon only on mobile, text on desktop */}
+                {selectedList && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={handleExportCSV}
+                      size="icon"
+                      className="md:hidden h-9 w-9"
+                      title="Export list"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleExportCSV}
+                      className="hidden md:flex"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Export
+                    </Button>
+                  </>
+                )}
+
+                {/* Add Media - Icon only on mobile, text on desktop */}
+                {canEdit && (
+                  <>
+                    <Button
+                      onClick={() => setIsAddModalOpen(true)}
+                      size="icon"
+                      className="md:hidden h-9 w-9"
+                      title="Add media"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="12" x2="12" y1="5" y2="19" />
+                        <line x1="5" x2="19" y1="12" y2="12" />
+                      </svg>
+                    </Button>
+                    <Button
+                      onClick={() => setIsAddModalOpen(true)}
+                      className="hidden md:flex"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mr-2"
+                      >
+                        <line x1="12" x2="12" y1="5" y2="19" />
+                        <line x1="5" x2="19" y1="12" y2="12" />
+                      </svg>
+                      Add Media
+                    </Button>
+                  </>
+                )}
+
+                <ThemeToggle />
               </div>
             </div>
-          </div>
-          <div className="flex items-center gap-1.5 md:gap-2">
-            {/* Edit button - all sizes, with outline, text on desktop */}
-            {canEdit && selectedList && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="md:hidden h-9 w-9"
-                  onClick={() => setIsEditListDialogOpen(true)}
-                  title="Edit list"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="hidden md:flex"
-                  onClick={() => setIsEditListDialogOpen(true)}
-                >
-                  <Edit2 className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              </>
-            )}
 
-            {/* Manage Members - all sizes, text on desktop */}
-            {canEdit && selectedList && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="md:hidden h-9 w-9"
-                  onClick={() => setIsShareListOpen(true)}
-                  title="Manage members"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="hidden md:flex"
-                  onClick={() => setIsShareListOpen(true)}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-2"
-                  >
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                  Manage Members
-                </Button>
-              </>
-            )}
-
-            {/* Export - Icon only on mobile, text on desktop */}
+            {/* Filters/Toolbar - Only show when list is selected */}
             {selectedList && (
               <>
-                <Button
-                  variant="outline"
-                  onClick={handleExportCSV}
-                  size="icon"
-                  className="md:hidden h-9 w-9"
-                  title="Export list"
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleExportCSV}
-                  className="hidden md:flex"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Export
-                </Button>
+                <div className="px-3 py-2 md:px-6 md:py-3">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex-1">
+                        {selectedList.description && (
+                          <>
+                            {/* Desktop: show description */}
+                            <p className="text-sm text-muted-foreground hidden md:block">
+                              {selectedList.description}
+                            </p>
+                            {/* Mobile: collapsible description */}
+                            <details className="md:hidden">
+                              <summary className="text-sm text-muted-foreground cursor-pointer hover:underline">
+                                Show description
+                              </summary>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {selectedList.description}
+                              </p>
+                            </details>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Horizontal scrolling status pills */}
+                    <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
+                      <div className="flex gap-1.5 md:gap-2 min-w-max">
+                        {VIEW_CHIPS.map((chip) => (
+                          <Button
+                            key={chip.value}
+                            variant="outline"
+                            size="sm"
+                            className={`rounded-full px-2 py-0.5 md:px-3 md:py-1 border-2 transition-colors text-xs md:text-sm h-7 md:h-9 flex-shrink-0 ${activeView === chip.value
+                              ? "border-primary bg-primary text-white hover:bg-primary/85 hover:border-primary hover:text-white dark:border-primary/80 dark:bg-primary/80 dark:hover:bg-primary/70 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
+                              : "border-border bg-background text-foreground hover:bg-muted/70 hover:border-border"
+                              }`}
+                            onClick={() => setActiveView(chip.value)}
+                          >
+                            <span>{chip.label}</span>
+                            <span
+                              className={`ml-1 md:ml-2 rounded-full border px-1.5 md:px-2 text-[10px] md:text-xs ${activeView === chip.value
+                                ? "border-white/70 bg-white/25 text-white dark:border-white/30 dark:bg-white/15"
+                                : "border-border bg-secondary text-foreground"
+                                }`}
+                            >
+                              {statusCounts[chip.value]}
+                            </span>
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                      {/* Card size selector - icon buttons */}
+                      <div className="hidden md:flex items-center gap-1 border rounded-md p-0.5">
+                        <Button
+                          variant={cardSize === "small" ? "secondary" : "ghost"}
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setCardSize("small")}
+                          title="Small cards"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <rect x="3" y="3" width="7" height="7" />
+                            <rect x="14" y="3" width="7" height="7" />
+                            <rect x="3" y="14" width="7" height="7" />
+                            <rect x="14" y="14" width="7" height="7" />
+                          </svg>
+                        </Button>
+                        <Button
+                          variant={cardSize === "normal" ? "secondary" : "ghost"}
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setCardSize("normal")}
+                          title="Normal cards"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <rect x="3" y="3" width="18" height="7" />
+                            <rect x="3" y="14" width="18" height="7" />
+                          </svg>
+                        </Button>
+                        <Button
+                          variant={cardSize === "large" ? "secondary" : "ghost"}
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setCardSize("large")}
+                          title="Large cards"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <rect x="3" y="3" width="18" height="18" />
+                          </svg>
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                        <Select
+                          value={currentSort}
+                          onValueChange={(value) =>
+                            setSortByPerList((prev) => ({
+                              ...prev,
+                              [selectedListId!.toString()]: value as SortOption,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Sort by" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="added">Date added</SelectItem>
+                            <SelectItem value="release">Release year</SelectItem>
+                            <SelectItem value="rating">Rating</SelectItem>
+                            <SelectItem value="alpha">A–Z</SelectItem>
+                            <SelectItem value="priority">Priority</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={typeFilter}
+                          onValueChange={(value) =>
+                            setTypeFilter(value as TypeFilter)
+                          }
+                        >
+                          <SelectTrigger className="w-[150px]">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All types</SelectItem>
+                            <SelectItem value="movie">Movies</SelectItem>
+                            <SelectItem value="tv">TV shows</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </>
             )}
-
-            {/* Add Media - Icon only on mobile, text on desktop */}
-            {canEdit && (
-              <>
-                <Button
-                  onClick={() => setIsAddModalOpen(true)}
-                  size="icon"
-                  className="md:hidden h-9 w-9"
-                  title="Add media"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="12" x2="12" y1="5" y2="19" />
-                    <line x1="5" x2="19" y1="12" y2="12" />
-                  </svg>
-                </Button>
-                <Button
-                  onClick={() => setIsAddModalOpen(true)}
-                  className="hidden md:flex"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-2"
-                  >
-                    <line x1="12" x2="12" y1="5" y2="19" />
-                    <line x1="5" x2="19" y1="12" y2="12" />
-                  </svg>
-                  Add Media
-                </Button>
-              </>
-            )}
-
-            <ThemeToggle />
           </div>
         </div>
-        {!isLoaded ? (
-          // Show skeletons inside the dashboard layout while user/data load
-          <div className="flex-1 overflow-y-auto px-4 py-5 md:px-6">
-            <div
-              className="
+
+        {/* Embellished separator between header and content */}
+        <div className="relative shrink-0 z-20">
+          <div className="h-px bg-gradient-to-r from-transparent via-[var(--primary-400)]/60 to-transparent header-separator-glow"></div>
+          <div className="h-px bg-gradient-to-r from-transparent via-[var(--info-400)]/30 to-transparent"></div>
+          <div className="h-[3px] bg-gradient-to-r from-transparent via-[var(--primary-400)]/10 to-transparent blur-sm"></div>
+        </div>
+
+        {/* SCROLLABLE MEDIA CONTENT AREA */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {!isLoaded ? (
+            // Show skeletons inside the dashboard layout while user/data load
+            <div className="px-4 py-5 md:px-6">
+              <div
+                className="
         grid
         gap-6
         sm:grid-cols-2
@@ -916,294 +1096,118 @@ export default function DashboardPage() {
         lg:grid-cols-4
         xl:grid-cols-5
       "
-            >
-              {Array.from({ length: 8 }).map((_, i) => (
-                <MediaCardSkeleton key={i} size={cardSize} />
-              ))}
-            </div>
-          </div>
-        ) : selectedList ? (
-          <>
-            {/* Filters/Toolbar section - part of unified header */}
-            <div className="px-3 py-2 md:px-6 md:py-3 pb-4">
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex-1">
-                    {/* Removed duplicate title - shown in header */}
-                    {selectedList.description && (
-                      <>
-                        {/* Desktop: show description */}
-                        <p className="text-sm text-muted-foreground hidden md:block">
-                          {selectedList.description}
-                        </p>
-                        {/* Mobile: collapsible description */}
-                        <details className="md:hidden">
-                          <summary className="text-sm text-muted-foreground cursor-pointer hover:underline">
-                            Show description
-                          </summary>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {selectedList.description}
-                          </p>
-                        </details>
-                      </>
-                    )}
-
-                  </div>
-                </div>
-
-                {/* Horizontal scrolling status pills */}
-                <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
-                  <div className="flex gap-1.5 md:gap-2 min-w-max">
-                    {VIEW_CHIPS.map((chip) => (
-                      <Button
-                        key={chip.value}
-                        variant="outline"
-                        size="sm"
-                        className={`rounded-full px-2 py-0.5 md:px-3 md:py-1 border-2 transition-colors text-xs md:text-sm h-7 md:h-9 flex-shrink-0 ${activeView === chip.value
-                          ? "border-primary bg-primary text-white hover:bg-primary/85 hover:border-primary hover:text-white dark:border-primary/80 dark:bg-primary/80 dark:hover:bg-primary/70 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
-                          : "border-border bg-background text-foreground hover:bg-muted/70 hover:border-border"
-                          }`}
-                        onClick={() => setActiveView(chip.value)}
-                      >
-                        <span>{chip.label}</span>
-                        <span
-                          className={`ml-1 md:ml-2 rounded-full border px-1.5 md:px-2 text-[10px] md:text-xs ${activeView === chip.value
-                            ? "border-white/70 bg-white/25 text-white dark:border-white/30 dark:bg-white/15"
-                            : "border-border bg-secondary text-foreground"
-                            }`}
-                        >
-                          {statusCounts[chip.value]}
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                  {/* Card size selector - icon buttons */}
-                  <div className="hidden md:flex items-center gap-1 border rounded-md p-0.5">
-                    <Button
-                      variant={cardSize === "small" ? "secondary" : "ghost"}
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setCardSize("small")}
-                      title="Small cards"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <rect x="3" y="3" width="7" height="7" />
-                        <rect x="14" y="3" width="7" height="7" />
-                        <rect x="3" y="14" width="7" height="7" />
-                        <rect x="14" y="14" width="7" height="7" />
-                      </svg>
-                    </Button>
-                    <Button
-                      variant={cardSize === "normal" ? "secondary" : "ghost"}
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setCardSize("normal")}
-                      title="Normal cards"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <rect x="3" y="3" width="18" height="7" />
-                        <rect x="3" y="14" width="18" height="7" />
-                      </svg>
-                    </Button>
-                    <Button
-                      variant={cardSize === "large" ? "secondary" : "ghost"}
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setCardSize("large")}
-                      title="Large cards"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <rect x="3" y="3" width="18" height="18" />
-                      </svg>
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                    <Select
-                      value={currentSort}
-                      onValueChange={(value) =>
-                        setSortByPerList((prev) => ({
-                          ...prev,
-                          [selectedListId!.toString()]: value as SortOption,
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Sort by" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="added">Date added</SelectItem>
-                        <SelectItem value="release">Release year</SelectItem>
-                        <SelectItem value="rating">Rating</SelectItem>
-                        <SelectItem value="alpha">A–Z</SelectItem>
-                        <SelectItem value="priority">Priority</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={typeFilter}
-                      onValueChange={(value) =>
-                        setTypeFilter(value as TypeFilter)
-                      }
-                    >
-                      <SelectTrigger className="w-[150px]">
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All types</SelectItem>
-                        <SelectItem value="movie">Movies</SelectItem>
-                        <SelectItem value="tv">TV shows</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+              >
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <MediaCardSkeleton key={i} size={cardSize} />
+                ))}
               </div>
             </div>
-            {/* Subtle separator */}
-            <div className="h-px bg-gradient-to-r from-transparent via-border/40 to-transparent"></div>
-
-            {/* Content area with own background */}
-            <div className="flex-1 overflow-y-auto bg-background/50">
-              <div className="px-3 py-3 md:px-6 md:py-5">
+          ) : selectedList ? (
+            <div>
+              <div className="px-3 pt-2 pb-3 md:px-6 md:pt-3 md:pb-5">
                 {renderItems()}
               </div>
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center px-4">
-            <Card className="max-w-lg w-full border-dashed">
-              <CardHeader>
-                <CardTitle>Welcome to your watch lists</CardTitle>
-                <CardDescription>
-                  Create your first list to start tracking movies and shows. You
-                  can add items from TMDB search once a list exists.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex gap-3">
-                <Button onClick={() => setIsCreateListOpen(true)}>
-                  Create List
-                </Button>
+          ) : (
+            <div className="flex items-center justify-center px-4 py-20 min-h-full">
+              <Card className="max-w-lg w-full border-dashed">
+                <CardHeader>
+                  <CardTitle>Welcome to your watch lists</CardTitle>
+                  <CardDescription>
+                    Create your first list to start tracking movies and shows. You
+                    can add items from TMDB search once a list exists.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex gap-3">
+                  <Button onClick={() => setIsCreateListOpen(true)}>
+                    Create List
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsAddModalOpen(true)}
+                    disabled
+                  >
+                    Add Media
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+
+        <AddMediaModal
+          open={isAddModalOpen && canEdit}
+          onOpenChange={setIsAddModalOpen}
+          selectedListId={selectedListId}
+          lists={lists ?? []}
+          onListSelect={(listId) => setSelectedListId(listId)}
+        />
+
+        <Dialog open={isCreateListOpen} onOpenChange={setIsCreateListOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New List</DialogTitle>
+              <DialogDescription>
+                Create a new list to organize your movies and TV shows.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm font-medium">List Name</label>
+                <Input
+                  placeholder="My Watch List"
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleCreateList();
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">
+                  Description (Optional)
+                </label>
+                <Input
+                  placeholder="A list of shows I want to binge"
+                  value={newListDescription}
+                  onChange={(e) => setNewListDescription(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleCreateList();
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
-                  onClick={() => setIsAddModalOpen(true)}
-                  disabled
+                  onClick={() => setIsCreateListOpen(false)}
                 >
-                  Add Media
+                  Cancel
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-        </div>
+                <Button onClick={handleCreateList} disabled={!newListName.trim()}>
+                  Create
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        <ShareListDialog
+          listId={selectedListId ?? ("" as Id<"lists">)}
+          listName={selectedList?.name}
+          open={isShareListOpen && canEdit}
+          onOpenChange={setIsShareListOpen}
+        />
+        <EditListDialog
+          listId={selectedListId ?? ("" as Id<"lists">)}
+          initialName={selectedList?.name ?? ""}
+          initialDescription={selectedList?.description}
+          open={isEditListDialogOpen && !!canEdit && !!selectedList}
+          onOpenChange={setIsEditListDialogOpen}
+        />
       </div>
-
-      <AddMediaModal
-        open={isAddModalOpen && canEdit}
-        onOpenChange={setIsAddModalOpen}
-        selectedListId={selectedListId}
-        lists={lists ?? []}
-        onListSelect={(listId) => setSelectedListId(listId)}
-      />
-
-      <Dialog open={isCreateListOpen} onOpenChange={setIsCreateListOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New List</DialogTitle>
-            <DialogDescription>
-              Create a new list to organize your movies and TV shows.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-sm font-medium">List Name</label>
-              <Input
-                placeholder="My Watch List"
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleCreateList();
-                  }
-                }}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">
-                Description (Optional)
-              </label>
-              <Input
-                placeholder="A list of shows I want to binge"
-                value={newListDescription}
-                onChange={(e) => setNewListDescription(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleCreateList();
-                  }
-                }}
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsCreateListOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleCreateList} disabled={!newListName.trim()}>
-                Create
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-      <ShareListDialog
-        listId={selectedListId ?? ("" as Id<"lists">)}
-        listName={selectedList?.name}
-        open={isShareListOpen && canEdit}
-        onOpenChange={setIsShareListOpen}
-      />
-      <EditListDialog
-        listId={selectedListId ?? ("" as Id<"lists">)}
-        initialName={selectedList?.name ?? ""}
-        initialDescription={selectedList?.description}
-        open={isEditListDialogOpen && !!canEdit && !!selectedList}
-        onOpenChange={setIsEditListDialogOpen}
-      />
     </div>
   );
 }

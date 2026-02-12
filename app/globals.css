@@ -395,14 +395,50 @@
 }
 
 /* ============================================
+   LAYOUT SCROLL CONTAINMENT
+   ============================================ */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+.dashboard-scroll-area {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ============================================
    MASONRY LAYOUT
    ============================================ */
 .masonry-column {
   background-clip: padding-box;
 }
 
-.masonry-column > * {
+.masonry-column>* {
   margin-bottom: 1rem;
+}
+
+/* ============================================
+   HEADER SEPARATOR GLOW
+   ============================================ */
+@keyframes separator-shimmer {
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.header-separator-glow {
+  animation: separator-shimmer 4s ease-in-out infinite;
 }
 
 /* ============================================
