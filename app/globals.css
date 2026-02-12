@@ -8,35 +8,52 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
+
+  /* Core tokens */
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Semantic status tokens */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  /* Chart colors */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Sidebar tokens */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Border radius system */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -46,91 +63,388 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+/* ============================================
+   COLOR SCALES (50-800)
+   ============================================ */
 :root {
-  --radius: 0.625rem;
-  --background: #f6f1e8;
-  --foreground: #1b2435;
-  --card: #ffffff;
-  --card-foreground: #1b2435;
-  --popover: #ffffff;
-  --popover-foreground: #1b2435;
-  --primary: #2f6fed;
-  --primary-foreground: #f4f7ff;
-  --secondary: #f9f6ef;
-  --secondary-foreground: #1f2738;
-  --muted: #e7dfcf;
-  --muted-foreground: #5a6072;
-  --accent: #e9e3d7;
-  --accent-foreground: #1f2738;
-  --destructive: #e25555;
-  --border: #e1e2e6;
-  --input: #e1e2e6;
-  --ring: #2f6fed;
-  --chart-1: #2f6fed;
-  --chart-2: #4b7ae6;
-  --chart-3: #1fb36b;
-  --chart-4: #cbb38a;
-  --chart-5: #5a6072;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #1b2435;
-  --sidebar-primary: #2f6fed;
-  --sidebar-primary-foreground: #f4f7ff;
-  --sidebar-accent: #f2ecde;
-  --sidebar-accent-foreground: #1f2738;
-  --sidebar-border: #e1e2e6;
-  --sidebar-ring: #2f6fed;
+  --radius: 0.75rem;
+
+  /* NEUTRAL - Cool Slate */
+  --neutral-50: #F8F9FB;
+  --neutral-100: #EEF1F4;
+  --neutral-200: #DCDFE3;
+  --neutral-300: #A8ADB5;
+  --neutral-400: #737A84;
+  --neutral-500: #5A616B;
+  --neutral-600: #404852;
+  --neutral-700: #2A2F37;
+  --neutral-800: #181C22;
+
+  /* PRIMARY - Blue-Violet (~260°) */
+  --primary-50: #F6F4FD;
+  --primary-100: #E6E0FA;
+  --primary-200: #C5B5F3;
+  --primary-300: #9D82E8;
+  --primary-400: #7655DC;
+  --primary-500: #6B3FD9;
+  --primary-600: #5E2FC7;
+  --primary-700: #4722A3;
+  --primary-800: #2F166E;
+
+  /* SUCCESS - Emerald (~150°) */
+  --success-50: #F0FDF7;
+  --success-100: #D4F7E7;
+  --success-200: #A3ECC9;
+  --success-300: #5DD999;
+  --success-400: #22C56D;
+  --success-500: #16A35A;
+  --success-600: #0D8F4B;
+  --success-700: #086639;
+  --success-800: #053D23;
+
+  /* WARNING - Amber (~40°) */
+  --warning-50: #FEFBF3;
+  --warning-100: #FDF4E0;
+  --warning-200: #FAE5B8;
+  --warning-300: #F5CE73;
+  --warning-400: #EFB829;
+  --warning-500: #E8A817;
+  --warning-600: #D9940C;
+  --warning-700: #A66F08;
+  --warning-800: #6B4805;
+
+  /* DANGER - Red (~5°) */
+  --danger-50: #FEF4F3;
+  --danger-100: #FCE3E0;
+  --danger-200: #F7BBB5;
+  --danger-300: #EF7A6F;
+  --danger-400: #E84236;
+  --danger-500: #E1321F;
+  --danger-600: #D32315;
+  --danger-700: #A01B10;
+  --danger-800: #69110B;
+
+  /* INFO - Blue (~210°) */
+  --info-50: #F0F7FE;
+  --info-100: #DCEDFB;
+  --info-200: #B0D6F6;
+  --info-300: #68B0ED;
+  --info-400: #2F8DE3;
+  --info-500: #1A7DD9;
+  --info-600: #136AC7;
+  --info-700: #0D4F95;
+  --info-800: #083363;
+
+  /* RATING - Gold (~45°) */
+  --rating-50: #FFFCF0;
+  --rating-100: #FFF7DC;
+  --rating-200: #FFECB0;
+  --rating-300: #FFD966;
+  --rating-400: #FFC933;
+  --rating-500: #FFB800;
+  --rating-600: #F5A800;
+  --rating-700: #C28400;
+  --rating-800: #8A5E00;
 }
 
+/* ============================================
+   LIGHT MODE - Semantic Token Mapping
+   ============================================ */
+:root {
+  /* Foundation - Neutral scale */
+  --background: var(--neutral-50);
+  --foreground: var(--neutral-800);
+
+  /* Surfaces */
+  --card: #DDE3E8;
+  --card-foreground: var(--neutral-800);
+  --popover: var(--neutral-100);
+  --popover-foreground: var(--neutral-800);
+
+  /* Primary brand - Primary scale */
+  --primary: var(--primary-600);
+  --primary-foreground: var(--neutral-50);
+
+  /* Secondary - Neutral */
+  --secondary: var(--neutral-200);
+  --secondary-foreground: var(--neutral-800);
+
+  /* Muted states */
+  --muted: var(--neutral-200);
+  --muted-foreground: var(--neutral-500);
+
+  /* Accent - Primary */
+  --accent: var(--primary-100);
+  --accent-foreground: var(--primary-600);
+
+  /* Destructive - Danger */
+  --destructive: var(--danger-600);
+  --destructive-foreground: var(--neutral-50);
+
+  /* Success */
+  --success: var(--success-600);
+  --success-foreground: var(--neutral-50);
+
+  /* Warning */
+  --warning: var(--warning-600);
+  --warning-foreground: var(--neutral-50);
+
+  /* Info */
+  --info: var(--info-600);
+  --info-foreground: var(--neutral-50);
+
+  /* UI elements */
+  --border: var(--neutral-200);
+  --input: var(--neutral-100);
+  --ring: var(--primary-600);
+
+  /* Charts */
+  --chart-1: var(--primary-600);
+  --chart-2: var(--info-600);
+  --chart-3: var(--success-600);
+  --chart-4: var(--warning-600);
+  --chart-5: var(--danger-600);
+
+  /* Sidebar */
+  --sidebar: var(--neutral-100);
+  --sidebar-foreground: var(--neutral-800);
+  --sidebar-primary: var(--primary-600);
+  --sidebar-primary-foreground: var(--neutral-50);
+  --sidebar-accent: var(--primary-100);
+  --sidebar-accent-foreground: var(--primary-600);
+  --sidebar-border: var(--neutral-200);
+  --sidebar-ring: var(--primary-600);
+}
+
+/* ============================================
+   DARK MODE - Semantic Token Mapping
+   ============================================ */
 .dark {
-  --background: #1a1c20;
-  --foreground: #eaeff7;
-  --card: #22252b;
-  --card-foreground: #eaeff7;
-  --popover: #22252b;
-  --popover-foreground: #eaeff7;
-  --primary: #5b8cff;
-  --primary-foreground: #0f1724;
-  --secondary: #272b32;
-  --secondary-foreground: #eaeff7;
-  --muted: #2e323a;
-  --muted-foreground: #a7b0c2;
-  --accent: #2e323a;
-  --accent-foreground: #eaeff7;
-  --destructive: #e25555;
-  --border: #32353c;
-  --input: #2f333b;
-  --ring: #5b8cff;
-  --chart-1: #5b8cff;
-  --chart-2: #4b7ae6;
-  --chart-3: #1fb36b;
-  --chart-4: #c5a76b;
-  --chart-5: #a7b0c2;
-  --sidebar: #22252b;
-  --sidebar-foreground: #eaeff7;
-  --sidebar-primary: #5b8cff;
-  --sidebar-primary-foreground: #0f1724;
-  --sidebar-accent: #2e323a;
-  --sidebar-accent-foreground: #eaeff7;
-  --sidebar-border: #32353c;
-  --sidebar-ring: #5b8cff;
+  /* Foundation - Neutral scale (inverted) */
+  --background: var(--neutral-800);
+  --foreground: var(--neutral-100);
+
+  /* Surfaces */
+  --card: var(--neutral-700);
+  --card-foreground: var(--neutral-100);
+  --popover: var(--neutral-700);
+  --popover-foreground: var(--neutral-100);
+
+  /* Primary brand - lighter in dark */
+  --primary: var(--primary-400);
+  --primary-foreground: var(--neutral-800);
+
+  /* Secondary */
+  --secondary: var(--neutral-600);
+  --secondary-foreground: var(--neutral-100);
+
+  /* Muted states */
+  --muted: var(--neutral-600);
+  --muted-foreground: var(--neutral-300);
+
+  /* Accent - Primary lighter */
+  --accent: var(--primary-700);
+  --accent-foreground: var(--primary-200);
+
+  /* Destructive - Danger lighter */
+  --destructive: var(--danger-400);
+  --destructive-foreground: var(--neutral-800);
+
+  /* Success - lighter */
+  --success: var(--success-400);
+  --success-foreground: var(--neutral-800);
+
+  /* Warning - lighter */
+  --warning: var(--warning-400);
+  --warning-foreground: var(--neutral-800);
+
+  /* Info - lighter */
+  --info: var(--info-400);
+  --info-foreground: var(--neutral-800);
+
+  /* UI elements */
+  --border: var(--neutral-600);
+  --input: var(--neutral-700);
+  --ring: var(--primary-200);
+
+  /* Charts */
+  --chart-1: var(--primary-400);
+  --chart-2: var(--info-400);
+  --chart-3: var(--success-400);
+  --chart-4: var(--warning-400);
+  --chart-5: var(--danger-400);
+
+  /* Sidebar */
+  --sidebar: var(--neutral-700);
+  --sidebar-foreground: var(--neutral-100);
+  --sidebar-primary: var(--primary-400);
+  --sidebar-primary-foreground: var(--neutral-800);
+  --sidebar-accent: var(--primary-700);
+  --sidebar-accent-foreground: var(--primary-200);
+  --sidebar-border: var(--neutral-600);
+  --sidebar-ring: var(--primary-200);
 }
 
-@layer base {
+/* Smooth theme transitions */
+@supports (color: color-mix(in oklab, white, black)) {
   * {
-    @apply border-border outline-ring/50;
-  }
-  html,
-  body {
-    @apply bg-background text-foreground;
-    overflow-x: hidden;
-    width: 100%;
-    max-width: 100vw;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   }
 }
 
+/* ============================================
+   STATUS UTILITIES
+   ============================================ */
+
+/* Watching - Primary */
+.status-watching {
+  @apply bg-[var(--primary-100)] text-[var(--primary-600)] border border-[var(--primary-600)]/30 shadow-sm;
+}
+
+.dark .status-watching {
+  @apply bg-[var(--primary-700)] text-[var(--primary-300)] border border-[var(--primary-300)]/30 shadow-sm;
+}
+
+/* To Watch - Neutral Gray */
+.status-to-watch {
+  @apply bg-[var(--neutral-200)] text-[var(--neutral-700)] border border-[var(--neutral-500)]/30 shadow-sm;
+}
+
+.dark .status-to-watch {
+  @apply bg-[var(--neutral-600)] text-[var(--neutral-200)] border border-[var(--neutral-400)]/30 shadow-sm;
+}
+
+/* Watched - Success */
+.status-watched {
+  @apply bg-[var(--success-100)] text-[var(--success-600)] border border-[var(--success-600)]/30 shadow-sm;
+}
+
+.dark .status-watched {
+  @apply bg-[var(--success-700)] text-[var(--success-300)] border border-[var(--success-300)]/30 shadow-sm;
+}
+
+/* Dropped - Danger (soft) */
+.status-dropped {
+  @apply bg-[var(--danger-100)] text-[var(--danger-600)] border border-[var(--danger-600)]/30 shadow-sm;
+}
+
+.dark .status-dropped {
+  @apply bg-[var(--danger-700)] text-[var(--danger-300)] border border-[var(--danger-300)]/30 shadow-sm;
+}
+
+/* ============================================
+   PRIORITY UTILITIES
+   ============================================ */
+
+/* High - Danger (medium) */
+.priority-high {
+  @apply bg-[var(--danger-200)] text-[var(--danger-600)] border border-[var(--danger-600)]/30 shadow-sm;
+}
+
+.dark .priority-high {
+  @apply bg-[var(--danger-600)] text-[var(--danger-300)] border border-[var(--danger-300)]/30 shadow-sm;
+}
+
+/* Medium - Warning */
+.priority-medium {
+  @apply bg-[var(--warning-100)] text-[var(--warning-600)] border border-[var(--warning-600)]/30 shadow-sm;
+}
+
+.dark .priority-medium {
+  @apply bg-[var(--warning-700)] text-[var(--warning-300)] border border-[var(--warning-300)]/30 shadow-sm;
+}
+
+/* Low - Neutral subtle */
+.priority-low {
+  @apply bg-[var(--neutral-100)] text-[var(--neutral-600)] border border-[var(--neutral-400)]/30 shadow-sm;
+}
+
+.dark .priority-low {
+  @apply bg-[var(--neutral-700)] text-[var(--neutral-300)] border border-[var(--neutral-400)]/30 shadow-sm;
+}
+
+/* ============================================
+   ROLE UTILITIES
+   ============================================ */
+
+/* Creator - Primary (outline) */
+.role-creator {
+  @apply bg-[var(--primary-100)] text-[var(--primary-600)] border border-[var(--primary-600)]/30 shadow-sm;
+}
+
+.dark .role-creator {
+  @apply bg-[var(--primary-700)] text-[var(--primary-300)] border border-[var(--primary-300)]/30 shadow-sm;
+}
+
+/* Admin - Info (outline) */
+.role-admin {
+  @apply bg-[var(--info-100)] text-[var(--info-600)] border border-[var(--info-600)]/30 shadow-sm;
+}
+
+.dark .role-admin {
+  @apply bg-[var(--info-700)] text-[var(--info-300)] border border-[var(--info-300)]/30 shadow-sm;
+}
+
+/* Viewer - Neutral */
+.role-viewer {
+  @apply bg-[var(--neutral-200)] text-[var(--neutral-600)] border border-[var(--neutral-400)]/30 shadow-sm;
+}
+
+.dark .role-viewer {
+  @apply bg-[var(--neutral-600)] text-[var(--neutral-300)] border border-[var(--neutral-400)]/30 shadow-sm;
+}
+
+/* ============================================
+   MASONRY LAYOUT
+   ============================================ */
 .masonry-column {
   background-clip: padding-box;
 }
+
 .masonry-column > * {
-  margin-bottom: 1rem; /* vertical spacing between cards */
+  margin-bottom: 1rem;
+}
+
+/* ============================================
+   VISUAL EFFECTS
+   ============================================ */
+
+/* Subtle noise texture for depth */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(circle at 25% 25%, var(--primary-200) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, var(--info-200) 0%, transparent 50%);
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.dark body::before {
+  background-image:
+    radial-gradient(circle at 25% 25%, var(--primary-700) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, var(--info-700) 0%, transparent 50%);
+  opacity: 0.05;
+}
+
+/* Focus states */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--primary-200);
+  color: var(--primary-800);
+}
+
+.dark ::selection {
+  background-color: var(--primary-600);
+  color: var(--primary-100);
 }

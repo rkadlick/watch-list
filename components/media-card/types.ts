@@ -99,14 +99,14 @@ export const statusLabels = {
 };
 
 export const statusColors = {
-  to_watch: "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-700 dark:text-slate-100 dark:border-slate-500",
-  watching: "bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-600 dark:text-blue-50 dark:border-blue-400",
-  watched: "bg-green-100 text-green-700 border-green-300 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700",
-  dropped: "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700",
+  to_watch: "status-to-watch",
+  watching: "status-watching",
+  watched: "status-watched",
+  dropped: "status-dropped",
 };
 
 export const priorityColors = {
-  high: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700",
-  medium: "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-700",
-  low: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700",
+  high: "priority-high",
+  medium: "priority-medium",
+  low: "priority-low",
 };

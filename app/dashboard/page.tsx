@@ -197,29 +197,26 @@ export default function DashboardPage() {
     return grouped;
   }, [lists, user]);
 
-  // Get role badge styling
+  // Get role badge styling - using scale-based utilities
   const getRoleBadgeStyles = (role: "creator" | "admin" | "viewer") => {
     const styles = {
       creator: {
-        badge: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
-        section: "text-blue-600 dark:text-blue-400",
-        active: "border-blue-500 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/50",
-        inactive: "border-transparent hover:border-border hover:bg-muted/60",
-        separator: "border-blue-100 dark:border-blue-900/30",
+        badge: "role-creator",
+        section: "text-[var(--primary-600)] dark:text-[var(--primary-300)]",
+        active: "bg-[var(--primary-100)] dark:bg-[var(--primary-700)] shadow-sm ring-1 ring-[var(--primary-600)]/20 dark:ring-[var(--primary-300)]/20",
+        inactive: "hover:bg-muted/40 dark:hover:bg-muted/20",
       },
       admin: {
-        badge: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800",
-        section: "text-purple-600 dark:text-purple-400",
-        active: "border-purple-500 bg-purple-50 dark:border-purple-600 dark:bg-purple-950/50",
-        inactive: "border-transparent hover:border-border hover:bg-muted/60",
-        separator: "border-purple-100 dark:border-purple-900/30",
+        badge: "role-admin",
+        section: "text-[var(--info-600)] dark:text-[var(--info-300)]",
+        active: "bg-[var(--info-100)] dark:bg-[var(--info-700)] shadow-sm ring-1 ring-[var(--info-600)]/20 dark:ring-[var(--info-300)]/20",
+        inactive: "hover:bg-muted/40 dark:hover:bg-muted/20",
       },
       viewer: {
-        badge: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700",
-        section: "text-slate-600 dark:text-slate-400",
-        active: "border-slate-500 bg-slate-50 dark:border-slate-600 dark:bg-slate-900/50",
-        inactive: "border-transparent hover:border-border hover:bg-muted/60",
-        separator: "border-slate-100 dark:border-slate-700/30",
+        badge: "role-viewer",
+        section: "text-muted-foreground",
+        active: "bg-muted shadow-sm ring-1 ring-border/30",
+        inactive: "hover:bg-muted/40 dark:hover:bg-muted/20",
       },
     };
     return styles[role];
@@ -451,7 +448,7 @@ export default function DashboardPage() {
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         } ${isSidebarCollapsed ? "md:w-16" : "md:w-72"} w-72`}
       >
-        <div className="flex items-center justify-between border-b px-4 py-4">
+        <div className="flex items-center justify-between bg-gradient-to-b from-sidebar/50 to-transparent px-4 py-4 pb-6">
           {!isSidebarCollapsed && (
             <div>
               <div className="text-sm uppercase tracking-wide text-muted-foreground">
@@ -485,7 +482,7 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        <div className={`py-3 border-b ${isSidebarCollapsed ? "px-2" : "px-4"}`}>
+        <div className={`py-3 pb-5 mb-3 ${isSidebarCollapsed ? "px-2" : "px-4"}`}>
           <Button
             variant="outline"
             className="w-full"
@@ -529,10 +526,10 @@ export default function DashboardPage() {
                   return (
                     <div key={list._id}>
                       {index > 0 && !isSidebarCollapsed && (
-                        <div className={`border-t my-2 ${roleStyles.separator}`} />
+                        <div className="h-2" />
                       )}
                       <div
-                        className={`w-full rounded-lg border transition-colors flex items-start gap-2 ${
+                        className={`w-full rounded-lg transition-all flex items-start gap-2 ${
                           isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
                         } ${selectedListId === list._id
                             ? roleStyles.active
@@ -550,7 +547,7 @@ export default function DashboardPage() {
                         title={isSidebarCollapsed ? list.name : undefined}
                       >
                         {isSidebarCollapsed ? (
-                          <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-sm">
+                          <div className="w-8 h-8 rounded-full bg-[var(--primary-600)] dark:bg-[var(--primary-400)] text-[var(--neutral-50)] dark:text-[var(--neutral-800)] flex items-center justify-center font-bold text-sm shadow-sm">
                             {list.name.charAt(0).toUpperCase()}
                           </div>
                         ) : (
@@ -562,10 +559,6 @@ export default function DashboardPage() {
                                 {list.description}
                               </div>
                             )}
-
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
-                              Creator
-                            </span>
                           </>
                         )}
                       </button>
@@ -576,11 +569,11 @@ export default function DashboardPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-red-600 flex-shrink-0"
+                              className="h-7 w-7 text-muted-foreground flex-shrink-0 rounded-md group"
                               title="Delete list"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <Trash className="h-4 w-4" />
+                              <Trash className="h-4 w-4 transition-colors group-hover:text-[var(--danger-600)] dark:group-hover:text-[var(--danger-400)]" />
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -629,10 +622,10 @@ export default function DashboardPage() {
                   return (
                     <div key={list._id}>
                       {index > 0 && !isSidebarCollapsed && (
-                        <div className={`border-t my-2 ${roleStyles.separator}`} />
+                        <div className="h-2" />
                       )}
                       <div
-                        className={`w-full rounded-lg border transition-colors flex items-start gap-2 ${
+                        className={`w-full rounded-lg transition-all flex items-start gap-2 ${
                           isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
                         } ${selectedListId === list._id
                             ? roleStyles.active
@@ -650,7 +643,7 @@ export default function DashboardPage() {
                           title={isSidebarCollapsed ? list.name : undefined}
                         >
                           {isSidebarCollapsed ? (
-                            <div className="w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-sm">
+                            <div className="w-8 h-8 rounded-full bg-[var(--info-600)] dark:bg-[var(--info-400)] text-[var(--neutral-50)] dark:text-[var(--neutral-800)] flex items-center justify-center font-bold text-sm shadow-sm">
                               {list.name.charAt(0).toUpperCase()}
                             </div>
                           ) : (
@@ -662,10 +655,6 @@ export default function DashboardPage() {
                                   {list.description}
                                 </div>
                               )}
-
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
-                                Admin
-                              </span>
                             </>
                           )}
                         </button>
@@ -689,10 +678,10 @@ export default function DashboardPage() {
                   return (
                     <div key={list._id}>
                       {index > 0 && !isSidebarCollapsed && (
-                        <div className={`border-t my-2 ${roleStyles.separator}`} />
+                        <div className="h-2" />
                       )}
                       <div
-                        className={`w-full rounded-lg border transition-colors flex items-start gap-2 ${
+                        className={`w-full rounded-lg transition-all flex items-start gap-2 ${
                           isSidebarCollapsed ? "p-2 justify-center" : "px-3 py-3"
                         } ${selectedListId === list._id
                             ? roleStyles.active
@@ -710,7 +699,7 @@ export default function DashboardPage() {
                           title={isSidebarCollapsed ? list.name : undefined}
                         >
                           {isSidebarCollapsed ? (
-                            <div className="w-8 h-8 rounded-full bg-slate-500 text-white flex items-center justify-center font-bold text-sm">
+                            <div className="w-8 h-8 rounded-full bg-[var(--neutral-300)] dark:bg-[var(--neutral-600)] text-[var(--neutral-800)] dark:text-[var(--neutral-100)] flex items-center justify-center font-bold text-sm shadow-sm">
                               {list.name.charAt(0).toUpperCase()}
                             </div>
                           ) : (
@@ -722,10 +711,6 @@ export default function DashboardPage() {
                                   {list.description}
                                 </div>
                               )}
-
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${roleStyles.badge}`}>
-                                Viewer
-                              </span>
                             </>
                           )}
                         </button>
@@ -749,7 +734,9 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-0 w-full max-w-full overflow-x-hidden">
-        <div className="flex items-center justify-between gap-3 border-b bg-card/80 px-4 py-3 backdrop-blur">
+        {/* Unified Header */}
+        <div className="bg-card/80 dark:bg-card/60 backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -922,11 +909,11 @@ export default function DashboardPage() {
           <div className="flex-1 overflow-y-auto px-4 py-5 md:px-6">
             <div
               className="
-        grid 
-        gap-6 
-        sm:grid-cols-2 
-        md:grid-cols-3 
-        lg:grid-cols-4 
+        grid
+        gap-6
+        sm:grid-cols-2
+        md:grid-cols-3
+        lg:grid-cols-4
         xl:grid-cols-5
       "
             >
@@ -937,8 +924,8 @@ export default function DashboardPage() {
           </div>
         ) : selectedList ? (
           <>
-            {/* Fixed toolbar section */}
-            <div className="border-b bg-card/80 px-3 py-2 md:px-6 md:py-4 backdrop-blur">
+            {/* Filters/Toolbar section - part of unified header */}
+            <div className="px-3 py-2 md:px-6 md:py-3 pb-4">
               <div className="flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex-1">
@@ -1107,10 +1094,14 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+            {/* Subtle separator */}
+            <div className="h-px bg-gradient-to-r from-transparent via-border/40 to-transparent"></div>
 
-            {/* Scrollable card container */}
-            <div className="flex-1 overflow-y-auto px-3 py-3 md:px-6 md:py-5">
-              {renderItems()}
+            {/* Content area with own background */}
+            <div className="flex-1 overflow-y-auto bg-background/50">
+              <div className="px-3 py-3 md:px-6 md:py-5">
+                {renderItems()}
+              </div>
             </div>
           </>
         ) : (
@@ -1138,6 +1129,7 @@ export default function DashboardPage() {
             </Card>
           </div>
         )}
+        </div>
       </div>
 
       <AddMediaModal
@@ -1212,6 +1204,6 @@ export default function DashboardPage() {
         open={isEditListDialogOpen && !!canEdit && !!selectedList}
         onOpenChange={setIsEditListDialogOpen}
       />
-    </div >
+    </div>
   );
 }

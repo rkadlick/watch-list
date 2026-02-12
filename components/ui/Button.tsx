@@ -9,16 +9,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-sm border border-primary/20 dark:border-primary/30 dark:hover:bg-primary/80 dark:hover:border-primary/40",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "bg-destructive text-white hover:bg-destructive/90 hover:shadow-sm focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 border border-destructive/20 dark:border-destructive/30 dark:hover:border-destructive/40",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+          "border border-border/60 bg-background shadow-xs hover:bg-accent/30 hover:text-accent-foreground hover:border-accent/40 hover:shadow dark:bg-neutral-700/50 dark:border-border/50 dark:hover:bg-accent/25 dark:hover:border-accent/60 dark:hover:shadow-sm",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/70 hover:shadow-sm border border-border/50 dark:bg-neutral-600/60 dark:text-neutral-100 dark:border-border/50 dark:hover:bg-neutral-600/80 dark:hover:border-border/60 dark:hover:shadow-sm",
         ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
+          "hover:bg-accent/30 hover:text-accent-foreground dark:hover:bg-accent/25 dark:hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline hover:text-primary/80 dark:hover:text-primary/90",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

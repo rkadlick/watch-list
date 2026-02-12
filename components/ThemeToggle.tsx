@@ -54,7 +54,7 @@ export function ThemeToggle() {
 
   return (
     <Select value={theme} onValueChange={(value) => setTheme(value as ThemeOption)}>
-      <SelectTrigger className="h-9 w-9 md:w-[140px] p-0 md:px-3 [&>svg]:hidden md:[&>svg]:inline-flex">
+      <SelectTrigger className="h-9 w-9 md:w-[140px] p-0 md:px-3 border border-border/60 dark:border-border/40 [&>svg]:hidden md:[&>svg]:inline-flex">
         <div className="flex items-center gap-0 md:gap-2 justify-center md:justify-start w-full">
           {icon}
           <span className="hidden md:inline">

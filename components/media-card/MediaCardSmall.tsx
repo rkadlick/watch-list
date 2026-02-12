@@ -166,10 +166,10 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-red-600 flex-shrink-0 cursor-pointer"
+                    className="h-6 w-6 text-muted-foreground flex-shrink-0 cursor-pointer rounded-md group"
                     disabled={isDeleting}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 className="h-3.5 w-3.5 transition-colors group-hover:text-[var(--danger-600)] dark:group-hover:text-[var(--danger-400)]" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>

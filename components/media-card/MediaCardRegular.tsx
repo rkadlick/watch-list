@@ -176,10 +176,10 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={`${size === "large" ? "h-8 w-8" : "h-7 w-7"} text-muted-foreground hover:text-red-600 flex-shrink-0 cursor-pointer`}
+                    className={`${size === "large" ? "h-8 w-8" : "h-7 w-7"} text-muted-foreground flex-shrink-0 cursor-pointer rounded-md group`}
                     disabled={isDeleting}
                   >
-                    <Trash2 className={size === "large" ? "h-5 w-5" : "h-4 w-4"} />
+                    <Trash2 className={`${size === "large" ? "h-5 w-5" : "h-4 w-4"} transition-colors group-hover:text-[var(--danger-600)] dark:group-hover:text-[var(--danger-400)]`} />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>

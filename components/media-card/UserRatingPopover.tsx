@@ -46,18 +46,18 @@ export function UserRatingPopover({
       <PopoverTrigger asChild>
         <button
           className={cn(
-            "flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors cursor-pointer",
-            "hover:bg-accent/50",
+            "flex items-center gap-1 px-1.5 py-0.5 rounded-md transition-colors cursor-pointer group",
             rating
-              ? "text-amber-500"
-              : "text-muted-foreground hover:text-amber-500"
+              ? "text-[var(--rating-500)]"
+              : "text-muted-foreground"
           )}
           disabled={disabled}
         >
           <Star
             className={cn(
               iconSize,
-              rating ? "fill-amber-400 text-amber-400" : "fill-none"
+              "transition-colors",
+              rating ? "fill-[var(--rating-400)] text-[var(--rating-500)]" : "fill-none group-hover:text-[var(--rating-500)]"
             )}
           />
           <span className={cn(textSize, "font-medium tabular-nums")}>
@@ -85,7 +85,7 @@ export function UserRatingPopover({
                   className={cn(
                     starSize,
                     displayRating && value <= displayRating
-                      ? "fill-amber-400 text-amber-400"
+                      ? "fill-[var(--rating-400)] text-[var(--rating-500)]"
                       : "text-muted-foreground/40"
                   )}
                 />
