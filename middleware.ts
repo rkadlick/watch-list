@@ -7,6 +7,8 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-in-redirect(.*)",
   "/sign-up(.*)",
+  "/privacy",
+  "/contact",
   "/__clerk(.*)",  // Clerk internal handshake routes
   "/api/clerk(.*)" // Clerk API routes
 ]);
