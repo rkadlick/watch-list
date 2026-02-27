@@ -293,27 +293,44 @@ export const updateSeasonStatus = mutation({
       }
     }
 
-    // Calculate overall show status based on season statuses
+    // Calculate overall show status based on visible season statuses only
+    // (hidden seasons = no airDate = announced but not released yet)
     const allSeasons = media.seasonData || [];
-    const seasonStatuses = allSeasons.map((season) => {
+    const visibleSeasons = allSeasons.filter((s) => s.airDate);
+
+    const getSeasonStatus = (seasonNumber: number) => {
       const progress = newProgress.find(
-        (p) => p.seasonNumber === season.seasonNumber
+        (p) => p.seasonNumber === seasonNumber
       );
       if (progress?.status === "watched") return "watched";
       if (progress?.status === "watching") return "watching";
       if (progress?.status === "dropped") return "dropped";
       return "to_watch";
-    });
+    };
 
     let overallStatus: "to_watch" | "watching" | "watched" | "dropped";
-    if (seasonStatuses.some((s) => s === "watching")) {
-      overallStatus = "watching";
-    } else if (seasonStatuses.every((s) => s === "watched")) {
-      overallStatus = "watched";
-    } else if (seasonStatuses.every((s) => s === "dropped")) {
-      overallStatus = "dropped";
+
+    if (visibleSeasons.length === 0) {
+      // No visible seasons — use fallback (stored status or to_watch)
+      overallStatus = listItem.status ?? "to_watch";
     } else {
-      overallStatus = "to_watch";
+      const visibleStatuses = visibleSeasons.map((s) =>
+        getSeasonStatus(s.seasonNumber)
+      );
+
+      // Priority: dropped > watching > watched/to_watch
+      if (visibleStatuses.some((s) => s === "dropped")) {
+        overallStatus = "dropped";
+      } else if (visibleStatuses.some((s) => s === "watching")) {
+        overallStatus = "watching";
+      } else if (visibleStatuses.every((s) => s === "watched")) {
+        overallStatus = "watched";
+      } else if (visibleStatuses.every((s) => s === "to_watch")) {
+        overallStatus = "to_watch";
+      } else {
+        // Mixed watched + to_watch → to_watch
+        overallStatus = "to_watch";
+      }
     }
 
     await ctx.db.patch(args.listItemId, {

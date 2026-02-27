@@ -54,36 +54,33 @@ export function calculateTVStatus(
   const totalVisible = visibleSeasons.length;
 
   // Determine overall status based on visible season statuses
-  // Priority: All watched > Any watching > Mixed progress > All to watch > All dropped
+  // Priority: dropped > watching > watched/to_watch
 
-  // If all visible seasons are watched
-  if (statusCounts.watched === totalVisible) {
-    return "watched";
+  // If any visible season is dropped → series is dropped
+  if (statusCounts.dropped > 0) {
+    return "dropped";
   }
 
-  // If any visible season is currently being watched
+  // If any visible season is watching → series is watching
   if (statusCounts.watching > 0) {
     return "watching";
   }
 
-  // If some seasons are watched but others are not started (mixed progress)
+  // If all visible seasons are watched → series is watched
+  if (statusCounts.watched === totalVisible) {
+    return "watched";
+  }
+
+  // If all visible seasons are to_watch → series is to_watch
+  if (statusCounts.to_watch === totalVisible) {
+    return "to_watch";
+  }
+
+  // Mixed watched + to_watch → series is to_watch
   if (statusCounts.watched > 0 && statusCounts.to_watch > 0) {
-    return "watching";
+    return "to_watch";
   }
 
-  // If all visible seasons are dropped
-  if (statusCounts.dropped === totalVisible) {
-    return "dropped";
-  }
-
-  // If some seasons are dropped but others have progress
-  if (statusCounts.dropped > 0 && (statusCounts.watched > 0 || statusCounts.watching > 0)) {
-    // Use watching if there's any active progress
-    if (statusCounts.watching > 0 || statusCounts.watched > 0) {
-      return "watching";
-    }
-  }
-
-  // Default: all visible seasons are "to_watch"
+  // Fallback
   return "to_watch";
 }
