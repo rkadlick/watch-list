@@ -43,6 +43,7 @@ yarn-error.log*
 /.cursor
 /.agent
 /.claude
+CLAUDE.md
 
 # typescript
 *.tsbuildinfo
@@ -50,3 +51,6 @@ next-env.d.ts
 
 .env.sentry-build-plugin
 .env.production
+
+# local files
+/local

@@ -1,5 +1,23 @@
 /**
- * Utility functions for calculating TV show status based on visible seasons
+ * TV show status derivation from season-level data.
+ *
+ * Rules (priority order):
+ *
+ * SEASON STATUS (per season, only visible seasons — those with an airDate):
+ *   1. Explicitly "dropped" by user            → dropped
+ *   2. Has any open span (startedAt, no end)   → watching
+ *   3. Has at least one closed span            → watched
+ *   4. Has legacy startedAt without finishedAt → watching
+ *   5. Has legacy finishedAt                   → watched
+ *   6. Otherwise                                → to_watch
+ *
+ * SHOW STATUS (derived from visible-season statuses):
+ *   1. Any season dropped                      → dropped
+ *   2. Any season watching                     → watching
+ *   3. All visible seasons watched             → watched
+ *   4. All visible seasons to_watch            → to_watch
+ *   5. Mixed watched + to_watch                → to_watch
+ *   6. No visible seasons                      → fallbackStatus
  */
 
 import type { StatusValue, SeasonProgress } from "@/components/media-card/types";
@@ -11,76 +29,55 @@ interface SeasonData {
 }
 
 /**
- * Calculates the overall status for a TV show based on visible seasons
- * Only considers seasons that have an air date (released seasons)
- *
- * @param seasonData - All season data from TMDB
- * @param seasonProgress - User's progress on each season
- * @param fallbackStatus - The stored status to use if no visible seasons exist
- * @returns The calculated status for the TV show
+ * Derive a single season's status from its progress data, accounting for both
+ * the new `spans` array and legacy single startedAt/finishedAt fields.
+ */
+export function deriveSeasonStatus(progress: SeasonProgress | undefined): StatusValue {
+  if (!progress) return "to_watch";
+
+  if (progress.status === "dropped") return "dropped";
+
+  const spans = progress.spans;
+  if (spans && spans.length > 0) {
+    const hasOpenSpan = spans.some((s) => s.startedAt != null && s.finishedAt == null);
+    if (hasOpenSpan) return "watching";
+    return "watched";
+  }
+
+  if (progress.startedAt != null && progress.finishedAt == null) return "watching";
+  if (progress.finishedAt != null) return "watched";
+
+  return progress.status ?? "to_watch";
+}
+
+/**
+ * Calculates the overall status for a TV show based on visible seasons.
+ * Only considers seasons that have an air date (released seasons).
  */
 export function calculateTVStatus(
   seasonData: SeasonData[] | undefined,
   seasonProgress: SeasonProgress[] | undefined,
   fallbackStatus: StatusValue
 ): StatusValue {
-  // If no season data, use the fallback status
   if (!seasonData || seasonData.length === 0) {
     return fallbackStatus;
   }
 
-  // Filter to only visible seasons (seasons with air dates)
-  const visibleSeasons = seasonData.filter(season => season.airDate);
+  const visibleSeasons = seasonData.filter((season) => season.airDate);
 
-  // If no visible seasons, use the fallback status
   if (visibleSeasons.length === 0) {
     return fallbackStatus;
   }
 
-  // Get the status for each visible season
-  const visibleSeasonStatuses = visibleSeasons.map(season => {
-    const progress = seasonProgress?.find(p => p.seasonNumber === season.seasonNumber);
-    return progress?.status || "to_watch";
+  const visibleSeasonStatuses = visibleSeasons.map((season) => {
+    const progress = seasonProgress?.find((p) => p.seasonNumber === season.seasonNumber);
+    return deriveSeasonStatus(progress);
   });
 
-  // Count statuses
-  const statusCounts = {
-    watched: visibleSeasonStatuses.filter(s => s === "watched").length,
-    watching: visibleSeasonStatuses.filter(s => s === "watching").length,
-    to_watch: visibleSeasonStatuses.filter(s => s === "to_watch").length,
-    dropped: visibleSeasonStatuses.filter(s => s === "dropped").length,
-  };
+  if (visibleSeasonStatuses.some((s) => s === "dropped")) return "dropped";
+  if (visibleSeasonStatuses.some((s) => s === "watching")) return "watching";
+  if (visibleSeasonStatuses.every((s) => s === "watched")) return "watched";
+  if (visibleSeasonStatuses.every((s) => s === "to_watch")) return "to_watch";
 
-  const totalVisible = visibleSeasons.length;
-
-  // Determine overall status based on visible season statuses
-  // Priority: dropped > watching > watched/to_watch
-
-  // If any visible season is dropped → series is dropped
-  if (statusCounts.dropped > 0) {
-    return "dropped";
-  }
-
-  // If any visible season is watching → series is watching
-  if (statusCounts.watching > 0) {
-    return "watching";
-  }
-
-  // If all visible seasons are watched → series is watched
-  if (statusCounts.watched === totalVisible) {
-    return "watched";
-  }
-
-  // If all visible seasons are to_watch → series is to_watch
-  if (statusCounts.to_watch === totalVisible) {
-    return "to_watch";
-  }
-
-  // Mixed watched + to_watch → series is to_watch
-  if (statusCounts.watched > 0 && statusCounts.to_watch > 0) {
-    return "to_watch";
-  }
-
-  // Fallback
   return "to_watch";
 }

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/AlertDialog";
 import { Card, CardContent, CardTitle } from "@/components/ui/Card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
-import { Trash2, PlayCircle, Tv, FileText, Tag, MessageSquare, ChevronDown, Calendar } from "lucide-react";
+import { Trash2, Tv, FileText, Tag, MessageSquare, ChevronDown, Calendar } from "lucide-react";
 import { RatingCircle } from "./RatingCircle";
 import { StatusMenu } from "./StatusMenu";
 import { SeasonAccordion } from "./SeasonAccordion";
@@ -58,6 +58,11 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
     handleTagsChange,
     handleDatesChange,
     handleSeasonDatesChange,
+    handleAddMovieWatchDate,
+    handleRemoveMovieWatchDate,
+    handleAddSeasonSpan,
+    handleUpdateSeasonSpan,
+    handleRemoveSeasonSpan,
     activeTab,
     setActiveTab,
     // NEW loading flags
@@ -74,7 +79,7 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
     isUpdatingSeasonDates,
   } = props;
 
-  const { media, status, rating, priority: itemPriority, tags, startedAt, finishedAt, notes, _creationTime } = listItem;
+  const { media, status, rating, priority: itemPriority, tags, startedAt, finishedAt, movieWatchDates, notes, _creationTime } = listItem;
 
   const [showAllProviders, setShowAllProviders] = useState(false);
   if (!media) return null;
@@ -265,18 +270,36 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
             );
           })()}
 
-          {/* ROW 3.5: Date (Watched for movies, Started for shows) */}
-          {(media.type === "movie" && finishedAt) || (media.type === "tv" && startedAt) ? (
-            <div
-              className="flex items-center gap-2 text-sm text-muted-foreground"
-              title={media.type === "movie" ? "Finished Date" : "Started Date"}
-            >
-              <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>
-                {formatDate(media.type === "movie" ? finishedAt : startedAt)}
-              </span>
-            </div>
-          ) : null}
+          {/* ROW 3.5: Date summary */}
+          {(() => {
+            if (media.type === "movie") {
+              const dates = movieWatchDates ?? (finishedAt ? [finishedAt] : []);
+              if (dates.length === 0) return null;
+              const last = dates[dates.length - 1];
+              return (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground" title="Watched">
+                  <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>
+                    {formatDate(last)}
+                    {dates.length > 1 && (
+                      <span className="text-muted-foreground/50 ml-1">
+                        (+{dates.length - 1} rewatch{dates.length > 2 ? "es" : ""})
+                      </span>
+                    )}
+                  </span>
+                </div>
+              );
+            }
+            if (media.type === "tv" && startedAt) {
+              return (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground" title="Started Date">
+                  <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>{formatDate(startedAt)}</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* ROW 4: Tags */}
           {tags && tags.length > 0 && (
@@ -353,6 +376,9 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
                 handleSeasonRatingChange={handleSeasonRatingChange}
                 handleSeasonNotesChange={handleSeasonNotesChange}
                 handleSeasonDatesChange={handleSeasonDatesChange}
+                handleAddSeasonSpan={handleAddSeasonSpan}
+                handleUpdateSeasonSpan={handleUpdateSeasonSpan}
+                handleRemoveSeasonSpan={handleRemoveSeasonSpan}
                 isUpdatingSeasonStatus={isUpdatingSeasonStatus}
                 isUpdatingSeasonRating={isUpdatingSeasonRating}
                 isUpdatingSeasonNotes={isUpdatingSeasonNotes}
@@ -398,6 +424,7 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
                 canEdit={canEdit}
                 startedAt={startedAt}
                 finishedAt={finishedAt}
+                movieWatchDates={movieWatchDates}
                 tags={tags}
                 notes={notes}
                 mediaTitle={media.title}
@@ -406,6 +433,8 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
                 onTagsChange={handleTagsChange}
                 onNotesChange={handleNotesChange}
                 onDelete={handleDelete}
+                onAddMovieWatchDate={handleAddMovieWatchDate}
+                onRemoveMovieWatchDate={handleRemoveMovieWatchDate}
                 isUpdatingNotes={isUpdatingNotes}
                 isUpdatingTags={isUpdatingTags}
                 isUpdatingDates={isUpdatingDates}

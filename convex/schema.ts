@@ -82,10 +82,12 @@ export default defineSchema({
       v.literal("watched"),
       v.literal("dropped")
     ),
-    rating: v.optional(v.number()), // 1-10 - overall rating
+    rating: v.optional(v.number()),
     notes: v.optional(v.string()),
-    startedAt: v.optional(v.number()), // When started (TV shows) or undefined (movies)
-    finishedAt: v.optional(v.number()), // When finished (movies = watch date, TV shows = end date)
+    startedAt: v.optional(v.number()), // Legacy — use movieWatchDates / season spans
+    finishedAt: v.optional(v.number()), // Legacy — use movieWatchDates / season spans
+    movieWatchDates: v.optional(v.array(v.number())),
+    lastWatchedAt: v.optional(v.number()),
     priority: v.optional(
       v.union(
         v.literal("low"),
@@ -104,17 +106,25 @@ export default defineSchema({
             v.literal("watched"),
             v.literal("dropped")
           ),
-          rating: v.optional(v.number()), // 1-10 - season rating
-          notes: v.optional(v.string()), // Season-specific notes
-          startedAt: v.optional(v.number()), // When season started
-          finishedAt: v.optional(v.number()), // When season finished
+          rating: v.optional(v.number()),
+          notes: v.optional(v.string()),
+          startedAt: v.optional(v.number()), // Legacy — use spans
+          finishedAt: v.optional(v.number()), // Legacy — use spans
+          spans: v.optional(
+            v.array(
+              v.object({
+                startedAt: v.optional(v.number()),
+                finishedAt: v.optional(v.number()),
+              })
+            )
+          ),
         })
       )
     ),
   })
     .index("by_list_id", ["listId"])
     .index("by_list_and_media", ["listId", "mediaId"])
-    .index("by_media_id", ["mediaId"]), // Optional: Find all lists containing a media item
+    .index("by_media_id", ["mediaId"]),
 
   // TMDB search cache - stores search results to reduce API calls
   searchCache: defineTable({

@@ -5,6 +5,11 @@ export type StatusValue = "to_watch" | "watching" | "watched" | "dropped";
 export type SeasonStatusValue = StatusValue;
 export type PriorityValue = "low" | "medium" | "high" | undefined;
 
+export interface WatchSpan {
+  startedAt?: number;
+  finishedAt?: number;
+}
+
 export interface SeasonProgress {
   seasonNumber: number;
   status: SeasonStatusValue;
@@ -12,6 +17,7 @@ export interface SeasonProgress {
   notes?: string;
   startedAt?: number;
   finishedAt?: number;
+  spans?: WatchSpan[];
 }
 
 export interface MediaCardProps {
@@ -28,6 +34,8 @@ export interface MediaCardProps {
     tags?: string[];
     startedAt?: number;
     finishedAt?: number;
+    movieWatchDates?: number[];
+    lastWatchedAt?: number;
     seasonProgress?: SeasonProgress[];
     media: {
       _id: Id<"media">;
@@ -76,6 +84,11 @@ export interface MediaCardInnerProps extends Omit<MediaCardProps, "size"> {
   handleTagsChange: (tags: string[]) => Promise<void>;
   handleDatesChange: (startedAt?: number | null, finishedAt?: number | null) => Promise<void>;
   handleSeasonDatesChange: (seasonNumber: number, startedAt?: number | null, finishedAt?: number | null) => Promise<void>;
+  handleAddMovieWatchDate: (watchedOn: number) => Promise<void>;
+  handleRemoveMovieWatchDate: (dateIndex: number) => Promise<void>;
+  handleAddSeasonSpan: (seasonNumber: number, startedAt?: number) => Promise<void>;
+  handleUpdateSeasonSpan: (seasonNumber: number, spanIndex: number, startedAt?: number | null, finishedAt?: number | null) => Promise<void>;
+  handleRemoveSeasonSpan: (seasonNumber: number, spanIndex: number) => Promise<void>;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   isUpdatingStatus: boolean;

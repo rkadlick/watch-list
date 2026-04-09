@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { 
   validateString, 
@@ -32,6 +32,66 @@ function canEdit(role: "creator" | "admin" | "viewer" | null): boolean {
 // Helper function to check if user can view (any role)
 function canView(role: "creator" | "admin" | "viewer" | null): boolean {
   return role !== null;
+}
+
+type Status = "to_watch" | "watching" | "watched" | "dropped";
+
+interface SeasonDataEntry {
+  seasonNumber: number;
+  episodeCount: number;
+  airDate?: string;
+}
+
+interface SeasonProgressEntry {
+  seasonNumber: number;
+  status: Status;
+  rating?: number;
+  notes?: string;
+  startedAt?: number;
+  finishedAt?: number;
+  spans?: Array<{ startedAt?: number; finishedAt?: number }>;
+}
+
+function deriveSeasonStatusFromProgress(
+  progress: SeasonProgressEntry | undefined
+): Status {
+  if (!progress) return "to_watch";
+  if (progress.status === "dropped") return "dropped";
+
+  const spans = progress.spans;
+  if (spans && spans.length > 0) {
+    if (spans.some((s) => s.startedAt != null && s.finishedAt == null)) {
+      return "watching";
+    }
+    return "watched";
+  }
+
+  if (progress.startedAt != null && progress.finishedAt == null) {
+    return "watching";
+  }
+  if (progress.finishedAt != null) return "watched";
+
+  return progress.status ?? "to_watch";
+}
+
+function deriveOverallTVStatus(
+  seasonData: SeasonDataEntry[],
+  seasonProgress: SeasonProgressEntry[],
+  fallback: Status
+): Status {
+  const visible = seasonData.filter((s) => s.airDate);
+  if (visible.length === 0) return fallback;
+
+  const statuses = visible.map((s) => {
+    const p = seasonProgress.find((sp) => sp.seasonNumber === s.seasonNumber);
+    return deriveSeasonStatusFromProgress(p);
+  });
+
+  if (statuses.some((s) => s === "dropped")) return "dropped";
+  if (statuses.some((s) => s === "watching")) return "watching";
+  if (statuses.every((s) => s === "watched")) return "watched";
+  if (statuses.every((s) => s === "to_watch")) return "to_watch";
+  return "to_watch";
 }
 
 export const getListItems = query({
@@ -293,45 +353,11 @@ export const updateSeasonStatus = mutation({
       }
     }
 
-    // Calculate overall show status based on visible season statuses only
-    // (hidden seasons = no airDate = announced but not released yet)
-    const allSeasons = media.seasonData || [];
-    const visibleSeasons = allSeasons.filter((s) => s.airDate);
-
-    const getSeasonStatus = (seasonNumber: number) => {
-      const progress = newProgress.find(
-        (p) => p.seasonNumber === seasonNumber
-      );
-      if (progress?.status === "watched") return "watched";
-      if (progress?.status === "watching") return "watching";
-      if (progress?.status === "dropped") return "dropped";
-      return "to_watch";
-    };
-
-    let overallStatus: "to_watch" | "watching" | "watched" | "dropped";
-
-    if (visibleSeasons.length === 0) {
-      // No visible seasons — use fallback (stored status or to_watch)
-      overallStatus = listItem.status ?? "to_watch";
-    } else {
-      const visibleStatuses = visibleSeasons.map((s) =>
-        getSeasonStatus(s.seasonNumber)
-      );
-
-      // Priority: dropped > watching > watched/to_watch
-      if (visibleStatuses.some((s) => s === "dropped")) {
-        overallStatus = "dropped";
-      } else if (visibleStatuses.some((s) => s === "watching")) {
-        overallStatus = "watching";
-      } else if (visibleStatuses.every((s) => s === "watched")) {
-        overallStatus = "watched";
-      } else if (visibleStatuses.every((s) => s === "to_watch")) {
-        overallStatus = "to_watch";
-      } else {
-        // Mixed watched + to_watch → to_watch
-        overallStatus = "to_watch";
-      }
-    }
+    const overallStatus = deriveOverallTVStatus(
+      media.seasonData || [],
+      newProgress,
+      listItem.status ?? "to_watch"
+    );
 
     await ctx.db.patch(args.listItemId, {
       seasonProgress: newProgress.length > 0 ? newProgress : undefined,
@@ -855,6 +881,350 @@ export const updateSeasonDates = mutation({
   },
 });
 
+// ---------------------------------------------------------------------------
+// Movie watch dates
+// ---------------------------------------------------------------------------
+
+export const addMovieWatchDate = mutation({
+  args: {
+    listItemId: v.id("listItems"),
+    watchedOn: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) {
+      throw new Error("Not authorized to update this item");
+    }
+
+    const media = await ctx.db.get(listItem.mediaId);
+    if (!media || media.type !== "movie") {
+      throw new Error("This function is only for movies");
+    }
+
+    const dates = [...(listItem.movieWatchDates ?? []), args.watchedOn].sort(
+      (a, b) => a - b
+    );
+
+    await ctx.db.patch(args.listItemId, {
+      movieWatchDates: dates,
+      status: "watched",
+      lastWatchedAt: Math.max(...dates),
+    });
+
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+export const removeMovieWatchDate = mutation({
+  args: {
+    listItemId: v.id("listItems"),
+    dateIndex: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) {
+      throw new Error("Not authorized to update this item");
+    }
+
+    const dates = [...(listItem.movieWatchDates ?? [])];
+    if (args.dateIndex < 0 || args.dateIndex >= dates.length) {
+      throw new Error("Invalid date index");
+    }
+    dates.splice(args.dateIndex, 1);
+
+    const updates: Record<string, unknown> = {
+      movieWatchDates: dates.length > 0 ? dates : undefined,
+      lastWatchedAt: dates.length > 0 ? Math.max(...dates) : undefined,
+    };
+    if (dates.length === 0) {
+      updates.status = "to_watch";
+    }
+
+    await ctx.db.patch(args.listItemId, updates);
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Season spans (TV rewatches)
+// ---------------------------------------------------------------------------
+
+export const addSeasonSpan = mutation({
+  args: {
+    listItemId: v.id("listItems"),
+    seasonNumber: v.number(),
+    startedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) {
+      throw new Error("Not authorized to update this item");
+    }
+
+    const media = await ctx.db.get(listItem.mediaId);
+    if (!media || media.type !== "tv") {
+      throw new Error("This function is only for TV shows");
+    }
+
+    validateSeasonNumber(args.seasonNumber);
+
+    const progress = [...(listItem.seasonProgress ?? [])];
+    const idx = progress.findIndex((p) => p.seasonNumber === args.seasonNumber);
+
+    const newSpan = { startedAt: args.startedAt ?? Date.now(), finishedAt: undefined };
+
+    if (idx >= 0) {
+      const existing = progress[idx];
+      const spans = [...(existing.spans ?? []), newSpan];
+      progress[idx] = { ...existing, spans, status: "watching" };
+    } else {
+      progress.push({
+        seasonNumber: args.seasonNumber,
+        status: "watching",
+        spans: [newSpan],
+      });
+    }
+
+    const overallStatus = deriveOverallTVStatus(
+      media.seasonData || [],
+      progress,
+      listItem.status ?? "to_watch"
+    );
+
+    await ctx.db.patch(args.listItemId, {
+      seasonProgress: progress,
+      status: overallStatus,
+    });
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+export const updateSeasonSpan = mutation({
+  args: {
+    listItemId: v.id("listItems"),
+    seasonNumber: v.number(),
+    spanIndex: v.number(),
+    startedAt: v.optional(v.union(v.number(), v.null())),
+    finishedAt: v.optional(v.union(v.number(), v.null())),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) {
+      throw new Error("Not authorized to update this item");
+    }
+
+    const media = await ctx.db.get(listItem.mediaId);
+    if (!media || media.type !== "tv") {
+      throw new Error("This function is only for TV shows");
+    }
+
+    validateSeasonNumber(args.seasonNumber);
+
+    const progress = [...(listItem.seasonProgress ?? [])];
+    const seasonIdx = progress.findIndex(
+      (p) => p.seasonNumber === args.seasonNumber
+    );
+    if (seasonIdx < 0) throw new Error("Season not found in progress");
+
+    const season = { ...progress[seasonIdx] };
+    const spans = [...(season.spans ?? [])];
+    if (args.spanIndex < 0 || args.spanIndex >= spans.length) {
+      throw new Error("Invalid span index");
+    }
+
+    const span = { ...spans[args.spanIndex] };
+    if (args.startedAt !== undefined) {
+      span.startedAt = args.startedAt === null ? undefined : args.startedAt;
+    }
+    if (args.finishedAt !== undefined) {
+      span.finishedAt = args.finishedAt === null ? undefined : args.finishedAt;
+    }
+    spans[args.spanIndex] = span;
+    season.spans = spans;
+
+    const derived = deriveSeasonStatusFromProgress(season);
+    if (season.status !== "dropped") {
+      season.status = derived;
+    }
+    progress[seasonIdx] = season;
+
+    const overallStatus = deriveOverallTVStatus(
+      media.seasonData || [],
+      progress,
+      listItem.status ?? "to_watch"
+    );
+
+    const lastWatched = computeLastWatchedTV(progress);
+
+    await ctx.db.patch(args.listItemId, {
+      seasonProgress: progress,
+      status: overallStatus,
+      lastWatchedAt: lastWatched,
+    });
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+export const removeSeasonSpan = mutation({
+  args: {
+    listItemId: v.id("listItems"),
+    seasonNumber: v.number(),
+    spanIndex: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const clerkId = identity.subject;
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) {
+      throw new Error("Not authorized to update this item");
+    }
+
+    const media = await ctx.db.get(listItem.mediaId);
+    if (!media || media.type !== "tv") {
+      throw new Error("This function is only for TV shows");
+    }
+
+    validateSeasonNumber(args.seasonNumber);
+
+    const progress = [...(listItem.seasonProgress ?? [])];
+    const seasonIdx = progress.findIndex(
+      (p) => p.seasonNumber === args.seasonNumber
+    );
+    if (seasonIdx < 0) throw new Error("Season not found in progress");
+
+    const season = { ...progress[seasonIdx] };
+    const spans = [...(season.spans ?? [])];
+    if (args.spanIndex < 0 || args.spanIndex >= spans.length) {
+      throw new Error("Invalid span index");
+    }
+    spans.splice(args.spanIndex, 1);
+    season.spans = spans.length > 0 ? spans : undefined;
+
+    const derived = deriveSeasonStatusFromProgress(season);
+    if (season.status !== "dropped") {
+      season.status = derived;
+    }
+    progress[seasonIdx] = season;
+
+    const overallStatus = deriveOverallTVStatus(
+      media.seasonData || [],
+      progress,
+      listItem.status ?? "to_watch"
+    );
+
+    const lastWatched = computeLastWatchedTV(progress);
+
+    await ctx.db.patch(args.listItemId, {
+      seasonProgress: progress,
+      status: overallStatus,
+      lastWatchedAt: lastWatched,
+    });
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+function computeLastWatchedTV(
+  progress: SeasonProgressEntry[]
+): number | undefined {
+  let latest: number | undefined;
+  for (const season of progress) {
+    for (const span of season.spans ?? []) {
+      const d = span.finishedAt ?? span.startedAt;
+      if (d != null && (latest == null || d > latest)) latest = d;
+    }
+    const legacyD = season.finishedAt ?? season.startedAt;
+    if (legacyD != null && (latest == null || legacyD > latest)) latest = legacyD;
+  }
+  return latest;
+}
+
+// ---------------------------------------------------------------------------
+// Backfill: migrate legacy single dates → new arrays/spans
+// ---------------------------------------------------------------------------
+
+export const backfillWatchHistory = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const allItems = await ctx.db.query("listItems").collect();
+    let migrated = 0;
+
+    for (const item of allItems) {
+      const media = await ctx.db.get(item.mediaId);
+      if (!media) continue;
+
+      const updates: Record<string, unknown> = {};
+
+      if (media.type === "movie") {
+        if (!item.movieWatchDates && item.finishedAt) {
+          updates.movieWatchDates = [item.finishedAt];
+          updates.lastWatchedAt = item.finishedAt;
+        }
+      } else {
+        const progress = item.seasonProgress ?? [];
+        let changed = false;
+        const newProgress = progress.map((sp) => {
+          if (!sp.spans && (sp.startedAt || sp.finishedAt)) {
+            changed = true;
+            return {
+              ...sp,
+              spans: [{ startedAt: sp.startedAt, finishedAt: sp.finishedAt }],
+            };
+          }
+          return sp;
+        });
+        if (changed) {
+          updates.seasonProgress = newProgress;
+          updates.lastWatchedAt = computeLastWatchedTV(newProgress);
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await ctx.db.patch(item._id, updates);
+        migrated++;
+      }
+    }
+    return { migrated, total: allItems.length };
+  },
+});
+
 // Export list items for CSV download
 export const exportListItems = query({
   args: {
@@ -899,6 +1269,8 @@ export const exportListItems = query({
           tags: item.tags?.join(", ") || "",
           startedAt: item.startedAt,
           finishedAt: item.finishedAt,
+          movieWatchDates: item.movieWatchDates,
+          lastWatchedAt: item.lastWatchedAt,
           notes: item.notes || "",
           releaseDate: media?.releaseDate || "",
           genres: media?.genres?.map((g) => g.name).join(", ") || "",

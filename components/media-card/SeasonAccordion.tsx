@@ -47,6 +47,9 @@ interface SeasonAccordionProps {
   handleSeasonRatingChange: (seasonNumber: number, rating: number | undefined) => Promise<void>;
   handleSeasonNotesChange: (seasonNumber: number, notes: string) => Promise<void>;
   handleSeasonDatesChange: (seasonNumber: number, startedAt?: number, finishedAt?: number) => Promise<void>;
+  handleAddSeasonSpan?: (seasonNumber: number, startedAt?: number) => Promise<void>;
+  handleUpdateSeasonSpan?: (seasonNumber: number, spanIndex: number, startedAt?: number | null, finishedAt?: number | null) => Promise<void>;
+  handleRemoveSeasonSpan?: (seasonNumber: number, spanIndex: number) => Promise<void>;
   isUpdatingSeasonStatus: boolean;
   isUpdatingSeasonRating: boolean;
   isUpdatingSeasonNotes: boolean;
@@ -133,6 +136,9 @@ export function SeasonAccordion({
   handleSeasonRatingChange,
   handleSeasonNotesChange,
   handleSeasonDatesChange,
+  handleAddSeasonSpan,
+  handleUpdateSeasonSpan,
+  handleRemoveSeasonSpan,
   isUpdatingSeasonStatus,
   isUpdatingSeasonRating,
   isUpdatingSeasonNotes,
@@ -254,11 +260,28 @@ export function SeasonAccordion({
                   notes={seasonProgress?.notes}
                   startedAt={seasonProgress?.startedAt}
                   finishedAt={seasonProgress?.finishedAt}
+                  spans={seasonProgress?.spans}
                   onNotesChange={(notes) =>
                     handleSeasonNotesChange(season.seasonNumber, notes)
                   }
                   onDatesChange={(startedAt, finishedAt) =>
                     handleSeasonDatesChange(season.seasonNumber, startedAt, finishedAt)
+                  }
+                  onAddSpan={
+                    handleAddSeasonSpan
+                      ? (startedAt) => handleAddSeasonSpan(season.seasonNumber, startedAt)
+                      : undefined
+                  }
+                  onUpdateSpan={
+                    handleUpdateSeasonSpan
+                      ? (spanIndex, startedAt, finishedAt) =>
+                          handleUpdateSeasonSpan(season.seasonNumber, spanIndex, startedAt, finishedAt)
+                      : undefined
+                  }
+                  onRemoveSpan={
+                    handleRemoveSeasonSpan
+                      ? (spanIndex) => handleRemoveSeasonSpan(season.seasonNumber, spanIndex)
+                      : undefined
                   }
                   isUpdatingSeasonNotes={isUpdatingSeasonNotes}
                   isUpdatingSeasonDates={isUpdatingSeasonDates}

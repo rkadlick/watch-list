@@ -109,6 +109,47 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
       successMessage: "Season dates updated",
     }
   );
+  const {
+    mutate: addMovieWatchDateMut,
+  } = useMutationWithError(
+    api.listItems.addMovieWatchDate,
+    {
+      successMessage: "Watch date added",
+    }
+  );
+  const {
+    mutate: removeMovieWatchDateMut,
+  } = useMutationWithError(
+    api.listItems.removeMovieWatchDate,
+    {
+      successMessage: "Watch date removed",
+    }
+  );
+  const {
+    mutate: addSeasonSpanMut,
+  } = useMutationWithError(
+    api.listItems.addSeasonSpan,
+    {
+      successMessage: "Rewatch started",
+    }
+  );
+  const {
+    mutate: updateSeasonSpanMut,
+  } = useMutationWithError(
+    api.listItems.updateSeasonSpan,
+    {
+      successMessage: "Span updated",
+    }
+  );
+  const {
+    mutate: removeSeasonSpanMut,
+    isPending: isRemovingSpan,
+  } = useMutationWithError(
+    api.listItems.removeSeasonSpan,
+    {
+      successMessage: "Span removed",
+    }
+  );
 
   // Local state
   const [showSeasons, setShowSeasons] = useState(false);
@@ -183,6 +224,45 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
     await updateSeasonDates(args);
   };
 
+  const handleAddMovieWatchDate = async (watchedOn: number) => {
+    await addMovieWatchDateMut({ listItemId: listItem._id, watchedOn });
+  };
+
+  const handleRemoveMovieWatchDate = async (dateIndex: number) => {
+    await removeMovieWatchDateMut({ listItemId: listItem._id, dateIndex });
+  };
+
+  const handleAddSeasonSpan = async (seasonNumber: number, startedAt?: number) => {
+    const args: { listItemId: typeof listItem._id; seasonNumber: number; startedAt?: number } = {
+      listItemId: listItem._id,
+      seasonNumber,
+    };
+    if (startedAt !== undefined) args.startedAt = startedAt;
+    await addSeasonSpanMut(args);
+  };
+
+  const handleUpdateSeasonSpan = async (
+    seasonNumber: number,
+    spanIndex: number,
+    startedAt?: number | null,
+    finishedAt?: number | null
+  ) => {
+    const args: {
+      listItemId: typeof listItem._id;
+      seasonNumber: number;
+      spanIndex: number;
+      startedAt?: number | null;
+      finishedAt?: number | null;
+    } = { listItemId: listItem._id, seasonNumber, spanIndex };
+    if (startedAt !== undefined) args.startedAt = startedAt;
+    if (finishedAt !== undefined) args.finishedAt = finishedAt;
+    await updateSeasonSpanMut(args);
+  };
+
+  const handleRemoveSeasonSpan = async (seasonNumber: number, spanIndex: number) => {
+    await removeSeasonSpanMut({ listItemId: listItem._id, seasonNumber, spanIndex });
+  };
+
   // Helper functions
   const getSeasonStatus = (seasonNumber: number): StatusValue => {
     const prog = listItem.seasonProgress?.find((p) => p.seasonNumber === seasonNumber);
@@ -220,6 +300,11 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
     handleTagsChange,
     handleDatesChange,
     handleSeasonDatesChange,
+    handleAddMovieWatchDate,
+    handleRemoveMovieWatchDate,
+    handleAddSeasonSpan,
+    handleUpdateSeasonSpan,
+    handleRemoveSeasonSpan,
     activeTab,
     setActiveTab,
     // NEW loading flags

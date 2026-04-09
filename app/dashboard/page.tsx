@@ -62,12 +62,14 @@ import {
   AlertDialogFooter,
 } from "@/components/ui/AlertDialog";
 import { MediaCardSkeleton } from "@/components/media-card/MediaCardSkeleton";
+import { CalendarView } from "@/components/CalendarView";
 import { convertToCSV, downloadFile, generateFilename } from "@/lib/export";
 
 type StatusView = "all" | "to_watch" | "watching" | "watched" | "dropped";
 type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
 type TypeFilter = "all" | "movie" | "tv";
 type CardSize = "small" | "normal" | "large";
+type ViewMode = "list" | "calendar";
 
 const VIEW_CHIPS: { value: StatusView; label: string }[] = [
   { value: "all", label: "All" },
@@ -114,6 +116,8 @@ export default function DashboardPage() {
     Record<string, SortOption>
   >({});
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -273,6 +277,12 @@ export default function DashboardPage() {
     if (typeFilter !== "all") {
       items = items.filter((item) => item.media?.type === typeFilter);
     }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      items = items.filter((item) =>
+        item.media?.title?.toLowerCase().includes(q)
+      );
+    }
 
     const priorityOrder = { high: 3, medium: 2, low: 1 };
     const sorters: Record<SortOption, (a: any, b: any) => number> = {
@@ -301,7 +311,7 @@ export default function DashboardPage() {
     };
 
     return items.sort(sorters[currentSort]);
-  }, [listItems, activeView, currentSort, typeFilter]);
+  }, [listItems, activeView, currentSort, typeFilter, searchQuery]);
 
   const currentRole = useMemo(() => {
     if (!selectedList || !user) return null;
@@ -956,6 +966,38 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                      {/* View mode toggle */}
+                      <div className="flex items-center gap-1 border rounded-md p-0.5">
+                        <Button
+                          variant={viewMode === "list" ? "secondary" : "ghost"}
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setViewMode("list")}
+                          title="List view"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="3" width="7" height="7" />
+                            <rect x="14" y="3" width="7" height="7" />
+                            <rect x="3" y="14" width="7" height="7" />
+                            <rect x="14" y="14" width="7" height="7" />
+                          </svg>
+                        </Button>
+                        <Button
+                          variant={viewMode === "calendar" ? "secondary" : "ghost"}
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setViewMode("calendar")}
+                          title="Calendar view"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                          </svg>
+                        </Button>
+                      </div>
+
                       {/* Card size selector - icon buttons */}
                       <div className="hidden md:flex items-center gap-1 border rounded-md p-0.5">
                         <Button
@@ -1027,6 +1069,22 @@ export default function DashboardPage() {
                         </Button>
                       </div>
 
+                      <div className="relative flex-1 max-w-xs">
+                        <Input
+                          placeholder="Search in list..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="h-9 pl-3 pr-8"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground cursor-pointer"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2">
                         <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
                         <Select
@@ -1105,7 +1163,11 @@ export default function DashboardPage() {
           ) : selectedList ? (
             <div>
               <div className="px-3 pt-2 pb-3 md:px-6 md:pt-3 md:pb-5">
-                {renderItems()}
+                {viewMode === "calendar" ? (
+                  <CalendarView items={filteredItems} />
+                ) : (
+                  renderItems()
+                )}
               </div>
             </div>
           ) : (

@@ -1,23 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Textarea } from "@/components/ui/Textarea";
+import { Button } from "@/components/ui/Button";
 import { DatePicker } from "./DatePicker";
 import { formatISODateDisplay } from "@/lib/dates";
+import type { WatchSpan } from "./types";
 
 interface SeasonEditFormProps {
   canEdit: boolean;
   seasonNumber: number;
   episodeCount?: number;
   airDate?: string;
-  // User tracking data
   notes?: string;
   startedAt?: number;
   finishedAt?: number;
-  // Callbacks
+  spans?: WatchSpan[];
   onNotesChange: (notes: string) => void;
   onDatesChange: (startedAt?: number, finishedAt?: number) => void;
+  onAddSpan?: (startedAt?: number) => void;
+  onUpdateSpan?: (spanIndex: number, startedAt?: number | null, finishedAt?: number | null) => void;
+  onRemoveSpan?: (spanIndex: number) => void;
   isUpdatingSeasonNotes: boolean;
   isUpdatingSeasonDates: boolean;
 }
@@ -30,21 +34,17 @@ export function SeasonEditForm({
   notes = "",
   startedAt,
   finishedAt,
+  spans,
   onNotesChange,
   onDatesChange,
+  onAddSpan,
+  onUpdateSpan,
+  onRemoveSpan,
   isUpdatingSeasonNotes,
   isUpdatingSeasonDates,
 }: SeasonEditFormProps) {
   const [localNotes, setLocalNotes] = useState(notes);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
-
-  const handleStartedChange = (timestamp?: number | null) => {
-    onDatesChange(timestamp ?? undefined, finishedAt);
-  };
-
-  const handleFinishedChange = (timestamp?: number | null) => {
-    onDatesChange(startedAt, timestamp ?? undefined);
-  };
 
   const handleNotesBlur = () => {
     setIsEditingNotes(false);
@@ -53,57 +53,115 @@ export function SeasonEditForm({
     }
   };
 
-  // Sync local notes when prop changes
   useEffect(() => {
     setLocalNotes(notes);
   }, [notes]);
 
-  // Format meta info with dot separators
   const metaParts: string[] = [];
   if (episodeCount) metaParts.push(`${episodeCount} Episodes`);
   if (airDate) {
     const formattedAirDate = formatISODateDisplay(airDate);
-    // Simple future check (assuming YYYY-MM-DD)
     const isFuture = new Date(airDate) > new Date();
     const prefix = isFuture ? "Airing on" : "Aired";
-
     if (formattedAirDate) metaParts.push(`${prefix} ${formattedAirDate}`);
   }
 
+  const useSpans = spans != null && spans.length > 0;
+  const effectiveSpans: WatchSpan[] = useSpans
+    ? spans!
+    : startedAt || finishedAt
+      ? [{ startedAt, finishedAt }]
+      : [];
+
   return (
     <div className="space-y-3 pt-2">
-      {/* Meta Info (no borders, dot separated) - moved above date */}
       {metaParts.length > 0 && (
         <div className="text-xs text-muted-foreground/70 pb-1">
-          {metaParts.join(" • ")}
+          {metaParts.join(" \u2022 ")}
         </div>
       )}
 
-      {/* Dates Row */}
-      <div className="flex items-center gap-4">
-        <DatePicker
-          disabled={!canEdit || isUpdatingSeasonDates}
-          value={startedAt}
-          onChange={handleStartedChange}
-          label="Started this season"
-          placeholder="Started?"
-        />
+      {/* Watch spans */}
+      <div className="space-y-2">
+        {effectiveSpans.map((span, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground/50 w-5 text-right tabular-nums flex-shrink-0">
+              {effectiveSpans.length > 1 ? `#${idx + 1}` : ""}
+            </span>
 
-        {(startedAt || finishedAt) && (
-          <>
-            <span className="text-muted-foreground/40">→</span>
-            <DatePicker
-              disabled={!canEdit || isUpdatingSeasonDates}
-              value={finishedAt}
-              onChange={handleFinishedChange}
-              label="Finished this season"
-              placeholder="Finished?"
-            />
-          </>
+            {useSpans && onUpdateSpan ? (
+              <>
+                <DatePicker
+                  disabled={!canEdit || isUpdatingSeasonDates}
+                  value={span.startedAt}
+                  onChange={(ts) => onUpdateSpan(idx, ts ?? null, undefined)}
+                  label="Started"
+                  placeholder="Started?"
+                />
+                {(span.startedAt || span.finishedAt) && (
+                  <>
+                    <span className="text-muted-foreground/40">&rarr;</span>
+                    <DatePicker
+                      disabled={!canEdit || isUpdatingSeasonDates}
+                      value={span.finishedAt}
+                      onChange={(ts) => onUpdateSpan(idx, undefined, ts ?? null)}
+                      label="Finished"
+                      placeholder="Finished?"
+                    />
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <DatePicker
+                  disabled={!canEdit || isUpdatingSeasonDates}
+                  value={span.startedAt}
+                  onChange={(ts) => onDatesChange(ts ?? undefined, span.finishedAt)}
+                  label="Started this season"
+                  placeholder="Started?"
+                />
+                {(span.startedAt || span.finishedAt) && (
+                  <>
+                    <span className="text-muted-foreground/40">&rarr;</span>
+                    <DatePicker
+                      disabled={!canEdit || isUpdatingSeasonDates}
+                      value={span.finishedAt}
+                      onChange={(ts) => onDatesChange(span.startedAt, ts ?? undefined)}
+                      label="Finished this season"
+                      placeholder="Finished?"
+                    />
+                  </>
+                )}
+              </>
+            )}
+
+            {canEdit && useSpans && onRemoveSpan && effectiveSpans.length > 0 && (
+              <button
+                onClick={() => onRemoveSpan(idx)}
+                className="text-muted-foreground/50 hover:text-destructive transition-colors cursor-pointer flex-shrink-0"
+                disabled={isUpdatingSeasonDates}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        ))}
+
+        {canEdit && onAddSpan && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground/60 hover:text-muted-foreground px-2"
+            onClick={() => onAddSpan()}
+            disabled={isUpdatingSeasonDates}
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            {effectiveSpans.length === 0 ? "Log watch" : "Log rewatch"}
+          </Button>
         )}
       </div>
 
-      {/* Notes - Click to Edit - Made more distinct */}
+      {/* Notes */}
       {canEdit && (
         <div className="border border-border/50 rounded-md bg-muted/30 px-3 py-2">
           {isEditingNotes ? (
