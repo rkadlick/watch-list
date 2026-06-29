@@ -7,7 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/Accordion";
-import { Star } from "lucide-react";
+import { Star, Check } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { StatusMenu } from "./StatusMenu";
 import { SeasonEditForm } from "./SeasonEditForm";
-import { statusColors, SeasonProgress, StatusValue } from "./types";
+import { statusColors, SeasonProgress, StatusValue, EpisodeData } from "./types";
 import { cn } from "@/lib/utils";
 
 interface SeasonAccordionProps {
@@ -30,6 +30,7 @@ interface SeasonAccordionProps {
       seasonNumber: number;
       episodeCount: number;
       airDate?: string;
+      episodes?: EpisodeData[];
     }>;
   };
   listItem: {
@@ -43,14 +44,15 @@ interface SeasonAccordionProps {
   getSeasonStatus: (seasonNumber: number) => StatusValue;
   getSeasonProgress: (seasonNumber: number) => SeasonProgress | undefined;
   formatDate: (timestamp?: number) => string | null;
-  // New handlers
   handleSeasonRatingChange: (seasonNumber: number, rating: number | undefined) => Promise<void>;
   handleSeasonNotesChange: (seasonNumber: number, notes: string) => Promise<void>;
   handleSeasonDatesChange: (seasonNumber: number, startedAt?: number, finishedAt?: number) => Promise<void>;
+  handleMarkSeasonWatched?: (seasonNumber: number) => Promise<void>;
   isUpdatingSeasonStatus: boolean;
   isUpdatingSeasonRating: boolean;
   isUpdatingSeasonNotes: boolean;
   isUpdatingSeasonDates: boolean;
+  isMarkingSeasonWatched?: boolean;
 }
 
 // Star Rating Picker Component
@@ -133,10 +135,12 @@ export function SeasonAccordion({
   handleSeasonRatingChange,
   handleSeasonNotesChange,
   handleSeasonDatesChange,
+  handleMarkSeasonWatched,
   isUpdatingSeasonStatus,
   isUpdatingSeasonRating,
   isUpdatingSeasonNotes,
   isUpdatingSeasonDates,
+  isMarkingSeasonWatched = false,
 }: SeasonAccordionProps) {
   if (!media.seasonData?.length) {
     return (
@@ -170,11 +174,24 @@ export function SeasonAccordion({
                   <span className="font-medium text-sm">Season {season.seasonNumber}</span>
                 </AccordionTrigger>
 
-                {/* Right Side: Status + Rating Popover (separate from trigger) */}
+                {/* Right Side: Mark Watched + Status + Rating Popover */}
                 <div
                   className="flex items-center gap-2"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {canEdit && handleMarkSeasonWatched && seasonStatus !== "watched" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs px-2 text-[var(--success-600)] dark:text-[var(--success-400)] hover:bg-[var(--success-50)] dark:hover:bg-[var(--success-950)]"
+                      onClick={() => handleMarkSeasonWatched(season.seasonNumber)}
+                      disabled={isMarkingSeasonWatched}
+                      title="Mark season as watched"
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      Watched
+                    </Button>
+                  )}
                   {canEdit && (
                     <StatusMenu
                       value={seasonStatus}
@@ -252,16 +269,11 @@ export function SeasonAccordion({
                   episodeCount={season.episodeCount}
                   airDate={season.airDate}
                   notes={seasonProgress?.notes}
-                  startedAt={seasonProgress?.startedAt}
-                  finishedAt={seasonProgress?.finishedAt}
+                  episodeDates={seasonProgress?.episodeDates}
                   onNotesChange={(notes) =>
                     handleSeasonNotesChange(season.seasonNumber, notes)
                   }
-                  onDatesChange={(startedAt, finishedAt) =>
-                    handleSeasonDatesChange(season.seasonNumber, startedAt, finishedAt)
-                  }
                   isUpdatingSeasonNotes={isUpdatingSeasonNotes}
-                  isUpdatingSeasonDates={isUpdatingSeasonDates}
                 />
               </AccordionContent>
             </AccordionItem>

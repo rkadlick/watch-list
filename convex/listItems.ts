@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import { 
   validateString, 
   validateRating, 
@@ -140,6 +141,14 @@ export const addListItem = mutation({
       updatedAt: Date.now(),
     });
 
+    // For TV shows without episode data yet, schedule a background fetch
+    if (media.type === "tv" && !media.episodesPopulated) {
+      await ctx.scheduler.runAfter(0, internal.media.fetchAndStoreEpisodes, {
+        mediaId: args.mediaId,
+        tmdbId: media.tmdbId,
+      });
+    }
+
     return listItemId;
   },
 });
@@ -183,18 +192,25 @@ export const updateStatus = mutation({
       throw new Error("Media not found");
     }
 
-    // For movies, just update status
+    // For movies, update status and auto-set watch date
     if (media.type === "movie") {
-      await ctx.db.patch(args.listItemId, {
+      const updates: { status: typeof args.status; finishedAt?: number } = {
         status: args.status,
-      });
+      };
+      if (args.status === "watched") {
+        updates.finishedAt = Date.now();
+      }
+      await ctx.db.patch(args.listItemId, updates);
     } else {
       // For TV shows, status is calculated from season statuses
       // This function should only be used to set "dropped" status
       // For other statuses, use updateSeasonStatus
       if (args.status === "dropped") {
+        // Capture drop position from current episode tracking
         await ctx.db.patch(args.listItemId, {
           status: args.status,
+          droppedAtSeason: listItem.currentSeasonNumber,
+          droppedAtEpisode: listItem.currentEpisodeNumber,
         });
       } else {
         throw new Error(
@@ -855,6 +871,551 @@ export const updateSeasonDates = mutation({
   },
 });
 
+type SeasonProgressEntry = {
+  seasonNumber: number;
+  status: "to_watch" | "watching" | "watched" | "dropped";
+  rating?: number;
+  notes?: string;
+  startedAt?: number;
+  finishedAt?: number;
+  episodeDates?: Array<{ episodeNumber: number; watchedAt: number }>;
+};
+
+function getEpisodeAirDate(
+  episodes: Array<{ episodeNumber: number; airDate?: string }> | undefined,
+  episodeNumber: number
+): string | undefined {
+  return episodes?.find((e) => e.episodeNumber === episodeNumber)?.airDate;
+}
+
+function resolveEpisodeAirDate(
+  season:
+    | {
+        airDate?: string;
+        episodes?: Array<{ episodeNumber: number; airDate?: string }>;
+      }
+    | undefined,
+  episodeNumber: number
+): string | undefined {
+  if (!season) return undefined;
+
+  const episodeDate = getEpisodeAirDate(season.episodes, episodeNumber);
+  if (episodeDate) return episodeDate;
+
+  if (episodeNumber === 1 && season.airDate) return season.airDate;
+
+  return undefined;
+}
+
+function isEpisodeUnreleased(airDate: string | undefined): boolean {
+  if (!airDate) return false;
+  return new Date(`${airDate}T00:00:00`).getTime() > Date.now();
+}
+
+function assertEpisodeHasAired(
+  seasonNumber: number,
+  episodeNumber: number,
+  airDate: string | undefined
+): void {
+  if (isEpisodeUnreleased(airDate)) {
+    const suffix = airDate ? ` (airs ${airDate})` : "";
+    throw new Error(`S${seasonNumber}E${episodeNumber} hasn't aired yet${suffix}`);
+  }
+}
+
+function recordEpisodeWatch(
+  progress: SeasonProgressEntry[],
+  seasonNumber: number,
+  episodeNumber: number,
+  episodeCount: number,
+  watchedAt: number
+): SeasonProgressEntry[] {
+  const next = [...progress];
+  const idx = next.findIndex((p) => p.seasonNumber === seasonNumber);
+  const seasonEntry: SeasonProgressEntry =
+    idx >= 0
+      ? { ...next[idx] }
+      : { seasonNumber, status: "watching" };
+
+  const existingDates = seasonEntry.episodeDates ?? [];
+  if (!existingDates.some((d) => d.episodeNumber === episodeNumber)) {
+    seasonEntry.episodeDates = [...existingDates, { episodeNumber, watchedAt }];
+  }
+
+  if (episodeNumber === 1 && !seasonEntry.startedAt) {
+    seasonEntry.startedAt = watchedAt;
+  }
+  if (episodeNumber === episodeCount) {
+    seasonEntry.finishedAt = watchedAt;
+  }
+
+  if (idx >= 0) {
+    next[idx] = seasonEntry;
+  } else {
+    next.push(seasonEntry);
+  }
+
+  return next;
+}
+
+function getShowDateUpdates(
+  visibleSeasons: Array<{ seasonNumber: number; episodeCount: number }>,
+  seasonNumber: number,
+  episodeNumber: number,
+  watchedAt: number,
+  existingStartedAt?: number,
+  existingFinishedAt?: number
+): { startedAt?: number; finishedAt?: number } {
+  const sorted = [...visibleSeasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
+  const firstSeason = sorted[0];
+  const lastSeason = sorted[sorted.length - 1];
+  const updates: { startedAt?: number; finishedAt?: number } = {};
+
+  if (
+    firstSeason &&
+    seasonNumber === firstSeason.seasonNumber &&
+    episodeNumber === 1 &&
+    !existingStartedAt
+  ) {
+    updates.startedAt = watchedAt;
+  }
+
+  if (
+    lastSeason &&
+    seasonNumber === lastSeason.seasonNumber &&
+    episodeNumber === lastSeason.episodeCount
+  ) {
+    updates.finishedAt = watchedAt;
+  }
+
+  return updates;
+}
+
+function markSeasonEpisodesWatched(
+  progress: SeasonProgressEntry[],
+  seasonNumber: number,
+  episodeCount: number,
+  watchedAt: number
+): SeasonProgressEntry[] {
+  let next = progress;
+  for (let episodeNumber = 1; episodeNumber <= episodeCount; episodeNumber++) {
+    next = recordEpisodeWatch(next, seasonNumber, episodeNumber, episodeCount, watchedAt);
+  }
+
+  const idx = next.findIndex((p) => p.seasonNumber === seasonNumber);
+  if (idx >= 0) {
+    next[idx] = { ...next[idx], status: "watched" };
+  }
+
+  return next;
+}
+
+function undoEpisodeWatch(
+  progress: SeasonProgressEntry[],
+  seasonNumber: number,
+  episodeNumber: number,
+  episodeCount: number
+): SeasonProgressEntry[] {
+  const idx = progress.findIndex((p) => p.seasonNumber === seasonNumber);
+  if (idx < 0) return progress;
+
+  const seasonEntry = { ...progress[idx] };
+  seasonEntry.episodeDates = (seasonEntry.episodeDates ?? []).filter(
+    (d) => d.episodeNumber !== episodeNumber
+  );
+
+  if (episodeNumber === 1) {
+    seasonEntry.startedAt = undefined;
+  }
+  if (episodeNumber === episodeCount) {
+    seasonEntry.finishedAt = undefined;
+  }
+
+  if (
+    !seasonEntry.startedAt &&
+    !seasonEntry.finishedAt &&
+    !seasonEntry.notes &&
+    !seasonEntry.rating &&
+    (!seasonEntry.episodeDates || seasonEntry.episodeDates.length === 0) &&
+    seasonEntry.status === "watching"
+  ) {
+    return progress.filter((p) => p.seasonNumber !== seasonNumber);
+  }
+
+  const next = [...progress];
+  next[idx] = seasonEntry;
+  return next;
+}
+
+// Helper: recalculate overall TV show status from seasonProgress
+function recalcTVStatus(
+  visibleSeasons: Array<{ seasonNumber: number }>,
+  seasonProgress: Array<{ seasonNumber: number; status: string }>,
+  fallback: string
+): "to_watch" | "watching" | "watched" | "dropped" {
+  if (visibleSeasons.length === 0) return fallback as "to_watch" | "watching" | "watched" | "dropped";
+
+  const getStatus = (num: number) => {
+    const p = seasonProgress.find((s) => s.seasonNumber === num);
+    return p?.status ?? "to_watch";
+  };
+
+  const statuses = visibleSeasons.map((s) => getStatus(s.seasonNumber));
+  if (statuses.some((s) => s === "dropped")) return "dropped";
+  if (statuses.some((s) => s === "watching")) return "watching";
+  if (statuses.every((s) => s === "watched")) return "watched";
+  if (statuses.every((s) => s === "to_watch")) return "to_watch";
+  return "to_watch";
+}
+
+// Advance episode by one (mark current as watched, move to next)
+export const advanceEpisode = mutation({
+  args: { listItemId: v.id("listItems") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const clerkId = identity.subject;
+
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) throw new Error("Not authorized");
+
+    const media = await ctx.db.get(listItem.mediaId);
+    if (!media || media.type !== "tv") throw new Error("Only TV shows support episode tracking");
+
+    const visibleSeasons = (media.seasonData ?? []).filter((s) => s.airDate);
+    if (visibleSeasons.length === 0) throw new Error("No season data available");
+
+    const curSeason = listItem.currentSeasonNumber ?? 1;
+    const curEpisode = listItem.currentEpisodeNumber ?? 1;
+
+    const currentSeasonData = visibleSeasons.find((s) => s.seasonNumber === curSeason);
+    const episodeCount = currentSeasonData?.episodeCount ?? 1;
+
+    const currentAirDate = resolveEpisodeAirDate(currentSeasonData, curEpisode);
+    if (currentAirDate && isEpisodeUnreleased(currentAirDate)) {
+      assertEpisodeHasAired(curSeason, curEpisode, currentAirDate);
+    }
+
+    const isLastEpisodeOfSeason = curEpisode >= episodeCount;
+
+    let newSeason = curSeason;
+    let newEpisode = curEpisode;
+    let markCurrentSeasonWatched = false;
+
+    // Record watchedAt for the episode we're leaving (curEpisode is now finished)
+    const now = Date.now();
+    let progress = recordEpisodeWatch(
+      (listItem.seasonProgress ?? []) as SeasonProgressEntry[],
+      curSeason,
+      curEpisode,
+      episodeCount,
+      now
+    );
+    const showDateUpdates = getShowDateUpdates(
+      visibleSeasons,
+      curSeason,
+      curEpisode,
+      now,
+      listItem.startedAt,
+      listItem.finishedAt
+    );
+
+    if (isLastEpisodeOfSeason) {
+      // End of season — find next visible season
+      const sortedSeasons = [...visibleSeasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
+      const nextSeason = sortedSeasons.find((s) => s.seasonNumber > curSeason);
+      markCurrentSeasonWatched = true;
+
+      if (nextSeason) {
+        newSeason = nextSeason.seasonNumber;
+        newEpisode = 1;
+      } else {
+        // Last episode of last season — mark show as watched
+        const updatedProgress = progress.map((p) =>
+          p.seasonNumber === curSeason ? { ...p, status: "watched" as const } : p
+        );
+        const hasExisting = updatedProgress.some((p) => p.seasonNumber === curSeason);
+        const finalProgress = hasExisting
+          ? updatedProgress
+          : [...updatedProgress, { seasonNumber: curSeason, status: "watched" as const }];
+
+        await ctx.db.patch(args.listItemId, {
+          status: "watched",
+          currentSeasonNumber: curSeason,
+          currentEpisodeNumber: curEpisode,
+          seasonProgress: finalProgress,
+          ...showDateUpdates,
+        });
+        await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+        return;
+      }
+    } else {
+      newEpisode = curEpisode + 1;
+    }
+
+    if (markCurrentSeasonWatched) {
+      const existingIdx = progress.findIndex((p) => p.seasonNumber === curSeason);
+      if (existingIdx >= 0) {
+        progress[existingIdx] = { ...progress[existingIdx], status: "watched" };
+      } else {
+        progress.push({ seasonNumber: curSeason, status: "watched" });
+      }
+    }
+
+    // Ensure next season is set to "watching" in progress if not already watched
+    const nextSeasonInProgress = progress.findIndex((p) => p.seasonNumber === newSeason);
+    if (!markCurrentSeasonWatched || newSeason !== curSeason) {
+      if (nextSeasonInProgress >= 0) {
+        if (progress[nextSeasonInProgress].status !== "watched") {
+          progress[nextSeasonInProgress] = { ...progress[nextSeasonInProgress], status: "watching" };
+        }
+      } else {
+        progress.push({ seasonNumber: newSeason, status: "watching" });
+      }
+    }
+
+    // Recalculate show status
+    const newStatus = recalcTVStatus(visibleSeasons, progress, listItem.status);
+
+    await ctx.db.patch(args.listItemId, {
+      currentSeasonNumber: newSeason,
+      currentEpisodeNumber: newEpisode,
+      seasonProgress: progress,
+      status: newStatus,
+      ...showDateUpdates,
+    });
+
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+// Rewind episode by one (undo last advance)
+export const rewindEpisode = mutation({
+  args: { listItemId: v.id("listItems") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const clerkId = identity.subject;
+
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) throw new Error("Not authorized");
+
+    const media = await ctx.db.get(listItem.mediaId);
+    if (!media || media.type !== "tv") throw new Error("Only TV shows support episode tracking");
+
+    const visibleSeasons = (media.seasonData ?? []).filter((s) => s.airDate);
+    if (visibleSeasons.length === 0) throw new Error("No season data available");
+
+    const curSeason = listItem.currentSeasonNumber ?? 1;
+    const curEpisode = listItem.currentEpisodeNumber ?? 1;
+
+    let newSeason = curSeason;
+    let newEpisode = curEpisode;
+
+    if (curEpisode <= 1) {
+      // Go to previous season
+      const sortedSeasons = [...visibleSeasons].sort((a, b) => b.seasonNumber - a.seasonNumber);
+      const prevSeason = sortedSeasons.find((s) => s.seasonNumber < curSeason);
+
+      if (!prevSeason) {
+        // Already at S1E1 — do nothing
+        return;
+      }
+
+      newSeason = prevSeason.seasonNumber;
+      newEpisode = prevSeason.episodeCount;
+    } else {
+      newEpisode = curEpisode - 1;
+    }
+
+    const unwatchedSeason = newSeason;
+    const unwatchedEpisode = newEpisode;
+    const unwatchedSeasonData = visibleSeasons.find((s) => s.seasonNumber === unwatchedSeason);
+    const unwatchedEpisodeCount = unwatchedSeasonData?.episodeCount ?? 1;
+
+    // Update seasonProgress — reopen previous season to "watching" if we went back
+    let progress = undoEpisodeWatch(
+      (listItem.seasonProgress ?? []) as SeasonProgressEntry[],
+      unwatchedSeason,
+      unwatchedEpisode,
+      unwatchedEpisodeCount
+    );
+    if (newSeason !== curSeason) {
+      // The season we're rewinding into should become "watching" again
+      const prevIdx = progress.findIndex((p) => p.seasonNumber === newSeason);
+      if (prevIdx >= 0) {
+        progress[prevIdx] = { ...progress[prevIdx], status: "watching" };
+      } else {
+        progress.push({ seasonNumber: newSeason, status: "watching" });
+      }
+      // Remove "watching" from current season if it was set
+      const curIdx = progress.findIndex((p) => p.seasonNumber === curSeason);
+      if (curIdx >= 0 && progress[curIdx].status === "watching") {
+        progress = progress.filter((p) => p.seasonNumber !== curSeason);
+      }
+    }
+
+    const newStatus = recalcTVStatus(visibleSeasons, progress, listItem.status);
+
+    const sortedSeasons = [...visibleSeasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
+    const firstSeason = sortedSeasons[0];
+    const lastSeason = sortedSeasons[sortedSeasons.length - 1];
+    const showDateUpdates: { startedAt?: number; finishedAt?: number } = {};
+
+    if (
+      firstSeason &&
+      unwatchedSeason === firstSeason.seasonNumber &&
+      unwatchedEpisode === 1
+    ) {
+      showDateUpdates.startedAt = undefined;
+    }
+    if (
+      lastSeason &&
+      unwatchedSeason === lastSeason.seasonNumber &&
+      unwatchedEpisode === lastSeason.episodeCount
+    ) {
+      showDateUpdates.finishedAt = undefined;
+    }
+
+    await ctx.db.patch(args.listItemId, {
+      currentSeasonNumber: newSeason,
+      currentEpisodeNumber: newEpisode,
+      seasonProgress: progress.length > 0 ? progress : undefined,
+      status: newStatus,
+      ...showDateUpdates,
+    });
+
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+// Mark an entire season as watched and advance position to next season
+export const markSeasonWatched = mutation({
+  args: {
+    listItemId: v.id("listItems"),
+    seasonNumber: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const clerkId = identity.subject;
+
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) throw new Error("Not authorized");
+
+    const media = await ctx.db.get(listItem.mediaId);
+    if (!media || media.type !== "tv") throw new Error("Only TV shows support season tracking");
+
+    const visibleSeasons = (media.seasonData ?? []).filter((s) => s.airDate);
+    const sortedSeasons = [...visibleSeasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
+    const seasonData = visibleSeasons.find((s) => s.seasonNumber === args.seasonNumber);
+    const episodeCount = seasonData?.episodeCount ?? 1;
+
+    for (let episodeNumber = 1; episodeNumber <= episodeCount; episodeNumber++) {
+      const airDate = resolveEpisodeAirDate(seasonData, episodeNumber);
+      if (!airDate) continue;
+      if (isEpisodeUnreleased(airDate)) {
+        assertEpisodeHasAired(args.seasonNumber, episodeNumber, airDate);
+      }
+    }
+
+    // Mark every episode in the season as watched with today's date
+    const now = Date.now();
+    let progress = markSeasonEpisodesWatched(
+      (listItem.seasonProgress ?? []) as SeasonProgressEntry[],
+      args.seasonNumber,
+      episodeCount,
+      now
+    );
+
+    const showDateUpdates = {
+      ...getShowDateUpdates(
+        visibleSeasons,
+        args.seasonNumber,
+        1,
+        now,
+        listItem.startedAt,
+        listItem.finishedAt
+      ),
+      ...getShowDateUpdates(
+        visibleSeasons,
+        args.seasonNumber,
+        episodeCount,
+        now,
+        listItem.startedAt,
+        listItem.finishedAt
+      ),
+    };
+
+    // Advance position to start of next season (or stay if last)
+    const nextSeason = sortedSeasons.find((s) => s.seasonNumber > args.seasonNumber);
+    let newSeason = args.seasonNumber;
+    let newEpisode = episodeCount;
+
+    if (nextSeason) {
+      newSeason = nextSeason.seasonNumber;
+      newEpisode = 1;
+      // Set next season to watching
+      const nextIdx = progress.findIndex((p) => p.seasonNumber === nextSeason.seasonNumber);
+      if (nextIdx >= 0) {
+        if (progress[nextIdx].status !== "watched") {
+          progress[nextIdx] = { ...progress[nextIdx], status: "watching" };
+        }
+      } else {
+        progress.push({ seasonNumber: nextSeason.seasonNumber, status: "watching" });
+      }
+    }
+
+    const newStatus = nextSeason
+      ? recalcTVStatus(visibleSeasons, progress, listItem.status)
+      : "watched";
+
+    await ctx.db.patch(args.listItemId, {
+      currentSeasonNumber: newSeason,
+      currentEpisodeNumber: newEpisode,
+      seasonProgress: progress,
+      status: newStatus,
+      ...showDateUpdates,
+    });
+
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+// Update sort order for manual reordering
+export const updateSortOrder = mutation({
+  args: {
+    listItemId: v.id("listItems"),
+    sortOrder: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const clerkId = identity.subject;
+
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) throw new Error("Not authorized");
+
+    await ctx.db.patch(args.listItemId, { sortOrder: args.sortOrder });
+  },
+});
+
 // Export list items for CSV download
 export const exportListItems = query({
   args: {
@@ -914,5 +1475,162 @@ export const exportListItems = query({
       exportedAt: Date.now(),
       items: itemsWithMedia,
     };
+  },
+});
+
+// Append a manual watch entry to watchHistory (movies: just dates; TV: dates + optional seasons)
+export const logWatchEntry = mutation({
+  args: {
+    listItemId: v.id("listItems"),
+    startedAt: v.optional(v.number()),
+    finishedAt: v.optional(v.number()),
+    rating: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    seasons: v.optional(
+      v.array(
+        v.object({
+          seasonNumber: v.number(),
+          startedAt: v.optional(v.number()),
+          finishedAt: v.optional(v.number()),
+          rating: v.optional(v.number()),
+          notes: v.optional(v.string()),
+          episodeDates: v.optional(
+            v.array(
+              v.object({
+                episodeNumber: v.number(),
+                watchedAt: v.number(),
+              })
+            )
+          ),
+        })
+      )
+    ),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const clerkId = identity.subject;
+
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) throw new Error("Not authorized");
+
+    const validatedRating = validateRating(args.rating, "Rating");
+
+    const entry: {
+      startedAt?: number;
+      finishedAt?: number;
+      rating?: number;
+      notes?: string;
+      seasons?: typeof args.seasons;
+    } = {
+      finishedAt: args.finishedAt ?? Date.now(),
+      rating: validatedRating,
+      notes: args.notes,
+      seasons: args.seasons,
+    };
+
+    const existing = listItem.watchHistory ?? [];
+    await ctx.db.patch(args.listItemId, {
+      watchHistory: [...existing, entry],
+    });
+
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+// Remove a watch history entry by index
+export const removeWatchEntry = mutation({
+  args: {
+    listItemId: v.id("listItems"),
+    entryIndex: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const clerkId = identity.subject;
+
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) throw new Error("Not authorized");
+
+    const existing = listItem.watchHistory ?? [];
+    if (args.entryIndex < 0 || args.entryIndex >= existing.length) {
+      throw new Error("Watch history entry index out of bounds");
+    }
+
+    const updated = existing.filter((_, i) => i !== args.entryIndex);
+    await ctx.db.patch(args.listItemId, {
+      watchHistory: updated.length > 0 ? updated : undefined,
+    });
+
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+// Archive the current TV show session to watchHistory and reset the tracker for a rewatch
+export const startRewatch = mutation({
+  args: { listItemId: v.id("listItems") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const clerkId = identity.subject;
+
+    const listItem = await ctx.db.get(args.listItemId);
+    if (!listItem) throw new Error("List item not found");
+
+    const list = await ctx.db.get(listItem.listId);
+    if (!list) throw new Error("List not found");
+    if (!canEdit(getUserRole(list, clerkId))) throw new Error("Not authorized");
+
+    const media = await ctx.db.get(listItem.mediaId);
+    if (!media || media.type !== "tv") {
+      throw new Error("startRewatch is only available for TV shows");
+    }
+
+    if (listItem.status !== "watched") {
+      throw new Error("Can only start a rewatch after completing the show");
+    }
+
+    // Build the history entry from current session state
+    const seasons = (listItem.seasonProgress ?? []).map((p) => ({
+      seasonNumber: p.seasonNumber,
+      startedAt: p.startedAt,
+      finishedAt: p.finishedAt,
+      rating: p.rating,
+      notes: p.notes,
+      episodeDates: p.episodeDates,
+    }));
+
+    const historyEntry = {
+      startedAt: listItem.startedAt,
+      finishedAt: listItem.finishedAt,
+      rating: listItem.rating,
+      notes: listItem.notes,
+      seasons: seasons.length > 0 ? seasons : undefined,
+    };
+
+    const existing = listItem.watchHistory ?? [];
+
+    await ctx.db.patch(args.listItemId, {
+      watchHistory: [...existing, historyEntry],
+      // Reset active tracker
+      status: "watching",
+      currentSeasonNumber: 1,
+      currentEpisodeNumber: 1,
+      seasonProgress: undefined,
+      startedAt: undefined,
+      finishedAt: undefined,
+      rating: undefined,
+      notes: undefined,
+    });
+
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
   },
 });

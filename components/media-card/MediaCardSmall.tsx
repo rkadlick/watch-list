@@ -48,7 +48,6 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
     getSeasonStatus,
     getSeasonProgress,
     formatDate,
-    // New handlers
     handleRatingChange,
     handleSeasonRatingChange,
     handlePriorityChange,
@@ -57,7 +56,7 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
     handleTagsChange,
     handleDatesChange,
     handleSeasonDatesChange,
-    // NEW loading flags
+    handleMarkSeasonWatched,
     isUpdatingStatus,
     isDeleting,
     isUpdatingRating,
@@ -69,6 +68,7 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
     isUpdatingSeasonRating,
     isUpdatingSeasonNotes,
     isUpdatingSeasonDates,
+    isMarkingSeasonWatched,
   } = props;
 
   const { media, status, rating, priority: itemPriority, tags, startedAt, finishedAt, notes, _creationTime } = listItem;
@@ -349,10 +349,12 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
             handleSeasonRatingChange={handleSeasonRatingChange}
             handleSeasonNotesChange={handleSeasonNotesChange}
             handleSeasonDatesChange={handleSeasonDatesChange}
+            handleMarkSeasonWatched={handleMarkSeasonWatched}
             isUpdatingSeasonStatus={isUpdatingSeasonStatus}
             isUpdatingSeasonRating={isUpdatingSeasonRating}
             isUpdatingSeasonNotes={isUpdatingSeasonNotes}
             isUpdatingSeasonDates={isUpdatingSeasonDates}
+            isMarkingSeasonWatched={isMarkingSeasonWatched}
           />
         </CardContent>
       )}

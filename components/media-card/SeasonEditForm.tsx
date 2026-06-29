@@ -1,25 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Calendar } from "lucide-react";
 import { Textarea } from "@/components/ui/Textarea";
-import { DatePicker } from "./DatePicker";
 import { formatISODateDisplay } from "@/lib/dates";
+import { EpisodeDate } from "./types";
 
 interface SeasonEditFormProps {
   canEdit: boolean;
   seasonNumber: number;
   episodeCount?: number;
   airDate?: string;
-  // User tracking data
   notes?: string;
-  startedAt?: number;
-  finishedAt?: number;
-  // Callbacks
+  episodeDates?: EpisodeDate[];
   onNotesChange: (notes: string) => void;
-  onDatesChange: (startedAt?: number, finishedAt?: number) => void;
   isUpdatingSeasonNotes: boolean;
-  isUpdatingSeasonDates: boolean;
 }
 
 export function SeasonEditForm({
@@ -28,23 +23,12 @@ export function SeasonEditForm({
   episodeCount,
   airDate,
   notes = "",
-  startedAt,
-  finishedAt,
+  episodeDates = [],
   onNotesChange,
-  onDatesChange,
   isUpdatingSeasonNotes,
-  isUpdatingSeasonDates,
 }: SeasonEditFormProps) {
   const [localNotes, setLocalNotes] = useState(notes);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
-
-  const handleStartedChange = (timestamp?: number | null) => {
-    onDatesChange(timestamp ?? undefined, finishedAt);
-  };
-
-  const handleFinishedChange = (timestamp?: number | null) => {
-    onDatesChange(startedAt, timestamp ?? undefined);
-  };
 
   const handleNotesBlur = () => {
     setIsEditingNotes(false);
@@ -53,57 +37,60 @@ export function SeasonEditForm({
     }
   };
 
-  // Sync local notes when prop changes
   useEffect(() => {
     setLocalNotes(notes);
   }, [notes]);
 
-  // Format meta info with dot separators
   const metaParts: string[] = [];
   if (episodeCount) metaParts.push(`${episodeCount} Episodes`);
   if (airDate) {
     const formattedAirDate = formatISODateDisplay(airDate);
-    // Simple future check (assuming YYYY-MM-DD)
     const isFuture = new Date(airDate) > new Date();
     const prefix = isFuture ? "Airing on" : "Aired";
-
     if (formattedAirDate) metaParts.push(`${prefix} ${formattedAirDate}`);
   }
 
+  const sortedEpisodeDates = [...episodeDates].sort(
+    (a, b) => a.episodeNumber - b.episodeNumber
+  );
+
+  const formatWatchDate = (timestamp: number) =>
+    new Date(timestamp).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
   return (
     <div className="space-y-3 pt-2">
-      {/* Meta Info (no borders, dot separated) - moved above date */}
       {metaParts.length > 0 && (
         <div className="text-xs text-muted-foreground/70 pb-1">
           {metaParts.join(" • ")}
         </div>
       )}
 
-      {/* Dates Row */}
-      <div className="flex items-center gap-4">
-        <DatePicker
-          disabled={!canEdit || isUpdatingSeasonDates}
-          value={startedAt}
-          onChange={handleStartedChange}
-          label="Started this season"
-          placeholder="Started?"
-        />
+      {sortedEpisodeDates.length > 0 ? (
+        <div className="space-y-1.5">
+          <div className="text-xs font-medium text-muted-foreground">Episodes watched</div>
+          <div className="space-y-1">
+            {sortedEpisodeDates.map((entry) => (
+              <div
+                key={entry.episodeNumber}
+                className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 rounded-md px-2.5 py-1.5"
+              >
+                <span className="text-foreground">Episode {entry.episodeNumber}</span>
+                <span className="flex items-center gap-1 tabular-nums">
+                  <Calendar className="h-3 w-3" />
+                  {formatWatchDate(entry.watchedAt)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground/60 py-1">No episodes watched yet</div>
+      )}
 
-        {(startedAt || finishedAt) && (
-          <>
-            <span className="text-muted-foreground/40">→</span>
-            <DatePicker
-              disabled={!canEdit || isUpdatingSeasonDates}
-              value={finishedAt}
-              onChange={handleFinishedChange}
-              label="Finished this season"
-              placeholder="Finished?"
-            />
-          </>
-        )}
-      </div>
-
-      {/* Notes - Click to Edit - Made more distinct */}
       {canEdit && (
         <div className="border border-border/50 rounded-md bg-muted/30 px-3 py-2">
           {isEditingNotes ? (

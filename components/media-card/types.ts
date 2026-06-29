@@ -5,6 +5,11 @@ export type StatusValue = "to_watch" | "watching" | "watched" | "dropped";
 export type SeasonStatusValue = StatusValue;
 export type PriorityValue = "low" | "medium" | "high" | undefined;
 
+export interface EpisodeDate {
+  episodeNumber: number;
+  watchedAt: number;
+}
+
 export interface SeasonProgress {
   seasonNumber: number;
   status: SeasonStatusValue;
@@ -12,6 +17,31 @@ export interface SeasonProgress {
   notes?: string;
   startedAt?: number;
   finishedAt?: number;
+  episodeDates?: EpisodeDate[];
+}
+
+export interface WatchHistorySeason {
+  seasonNumber: number;
+  startedAt?: number;
+  finishedAt?: number;
+  rating?: number;
+  notes?: string;
+  episodeDates?: EpisodeDate[];
+}
+
+export interface WatchHistoryEntry {
+  startedAt?: number;
+  finishedAt?: number;
+  rating?: number;
+  notes?: string;
+  seasons?: WatchHistorySeason[];
+}
+
+export interface EpisodeData {
+  episodeNumber: number;
+  name: string;
+  airDate?: string;
+  overview?: string;
 }
 
 export interface MediaCardProps {
@@ -29,6 +59,13 @@ export interface MediaCardProps {
     startedAt?: number;
     finishedAt?: number;
     seasonProgress?: SeasonProgress[];
+    // Episode position tracking
+    currentSeasonNumber?: number;
+    currentEpisodeNumber?: number;
+    // Drop position
+    droppedAtSeason?: number;
+    droppedAtEpisode?: number;
+    watchHistory?: WatchHistoryEntry[];
     media: {
       _id: Id<"media">;
       type: "movie" | "tv";
@@ -49,7 +86,9 @@ export interface MediaCardProps {
         seasonNumber: number;
         episodeCount: number;
         airDate?: string;
+        episodes?: EpisodeData[];
       }>;
+      tmdbRaw?: unknown;
     } | null;
   };
 
@@ -67,7 +106,7 @@ export interface MediaCardInnerProps extends Omit<MediaCardProps, "size"> {
   getSeasonStatus: (seasonNumber: number) => StatusValue;
   getSeasonProgress: (seasonNumber: number) => SeasonProgress | undefined;
   formatDate: (timestamp?: number) => string | null;
-  // New handlers
+  // Tracking handlers
   handleRatingChange: (rating: number | undefined) => Promise<void>;
   handleSeasonRatingChange: (seasonNumber: number, rating: number | undefined) => Promise<void>;
   handlePriorityChange: (priority: PriorityValue) => Promise<void>;
@@ -76,6 +115,14 @@ export interface MediaCardInnerProps extends Omit<MediaCardProps, "size"> {
   handleTagsChange: (tags: string[]) => Promise<void>;
   handleDatesChange: (startedAt?: number | null, finishedAt?: number | null) => Promise<void>;
   handleSeasonDatesChange: (seasonNumber: number, startedAt?: number | null, finishedAt?: number | null) => Promise<void>;
+  // Episode tracking handlers
+  handleAdvanceEpisode: () => Promise<void>;
+  handleRewindEpisode: () => Promise<void>;
+  handleMarkSeasonWatched: (seasonNumber: number) => Promise<void>;
+  // Rewatch handlers
+  handleStartRewatch: () => Promise<void>;
+  handleLogWatchEntry: (entry: { startedAt?: number; finishedAt?: number; rating?: number; notes?: string }) => Promise<void>;
+  handleRemoveWatchEntry: (entryIndex: number) => Promise<void>;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   isUpdatingStatus: boolean;
@@ -89,6 +136,12 @@ export interface MediaCardInnerProps extends Omit<MediaCardProps, "size"> {
   isUpdatingSeasonRating: boolean;
   isUpdatingSeasonNotes: boolean;
   isUpdatingSeasonDates: boolean;
+  isAdvancingEpisode: boolean;
+  isRewindingEpisode: boolean;
+  isMarkingSeasonWatched: boolean;
+  isStartingRewatch: boolean;
+  isLoggingWatchEntry: boolean;
+  isRemovingWatchEntry: boolean;
 }
 
 export const statusLabels = {

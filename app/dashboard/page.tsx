@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useQuery, useMutation, usePaginatedQuery, useConvex } from "convex/react";
+import { useQuery, useMutation, useConvex, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import Masonry from "react-masonry-css";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -33,21 +32,18 @@ import { MediaCard } from "@/components/media-card/MediaCard";
 import { ShareListDialog } from "@/components/ShareListDialog";
 import { EditListDialog } from "@/components/EditListDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { WatchSubSection } from "@/components/section/WatchSection";
 import { Id } from "@/convex/_generated/dataModel";
 import {
   ArrowUpDown,
-  Grid,
   Menu,
   X,
   Edit2,
-  Check,
-  X as XIcon,
-  Share,
   Trash,
-  Loader2,
   Download,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
 import {
@@ -63,19 +59,16 @@ import {
 } from "@/components/ui/AlertDialog";
 import { MediaCardSkeleton } from "@/components/media-card/MediaCardSkeleton";
 import { convertToCSV, downloadFile, generateFilename } from "@/lib/export";
+import {
+  classifyDashboardItems,
+  getDefaultDashboardTab,
+  type DashboardTab,
+} from "@/lib/dashboard-sections";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { cn } from "@/lib/utils";
 
-type StatusView = "all" | "to_watch" | "watching" | "watched" | "dropped";
-type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
 type TypeFilter = "all" | "movie" | "tv";
-type CardSize = "small" | "normal" | "large";
-
-const VIEW_CHIPS: { value: StatusView; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "to_watch", label: "To Watch" },
-  { value: "watching", label: "Watching" },
-  { value: "watched", label: "Watched" },
-  { value: "dropped", label: "Dropped" },
-];
+type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
@@ -108,17 +101,23 @@ export default function DashboardPage() {
   const [isCreateListOpen, setIsCreateListOpen] = useState(false);
   const [newListName, setNewListName] = useState("");
   const [newListDescription, setNewListDescription] = useState("");
-  const [activeView, setActiveView] = useState<StatusView>("all");
-  const [cardSize, setCardSize] = useState<CardSize>("small");
-  const [sortByPerList, setSortByPerList] = useState<
-    Record<string, SortOption>
-  >({});
+  const [sortByPerList, setSortByPerList] = useState<Record<string, SortOption>>({});
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const [isEditListDialogOpen, setIsEditListDialogOpen] = useState(false);
   const [isShareListOpen, setIsShareListOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<DashboardTab>("current");
+  const [tabInitializedForList, setTabInitializedForList] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(() => Date.now());
+  const [isRefreshingMedia, setIsRefreshingMedia] = useState(false);
+
+  const refreshListMedia = useAction(api.media.refreshListMedia);
+  const refreshCooldown = useQuery(
+    api.media.getRefreshCooldown,
+    selectedListId ? { listId: selectedListId } : "skip"
+  );
 
   // Sync user when they log in - ensure this completes before queries run
   useEffect(() => {
@@ -154,6 +153,21 @@ export default function DashboardPage() {
       }
     }
   }, [isLoaded, user, syncUser]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setRefreshTick(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const refreshCooldownRemainingMs = useMemo(() => {
+    if (!refreshCooldown?.lastRefreshAt) return 0;
+    return Math.max(
+      0,
+      refreshCooldown.cooldownMs - (refreshTick - refreshCooldown.lastRefreshAt)
+    );
+  }, [refreshCooldown, refreshTick]);
+
+  const canRefreshMedia = refreshCooldownRemainingMs === 0 && !isRefreshingMedia;
 
   // Helper function to get list role
   function getListRole(
@@ -249,27 +263,12 @@ export default function DashboardPage() {
     ? (sortByPerList[selectedListId.toString()] ?? "added")
     : "added";
 
-  const statusCounts = useMemo(() => {
-    const counts: Record<StatusView, number> = {
-      all: listItems?.length ?? 0,
-      to_watch: 0,
-      watching: 0,
-      watched: 0,
-      dropped: 0,
-    };
-    listItems?.forEach((item) => {
-      counts[item.status as StatusView] =
-        (counts[item.status as StatusView] || 0) + 1;
-    });
-    return counts;
-  }, [listItems]);
+  const today = new Date().toISOString().slice(0, 10);
 
-  const filteredItems = useMemo(() => {
+  const sortedItems = useMemo(() => {
     if (!listItems) return undefined;
     let items = [...listItems];
-    if (activeView !== "all") {
-      items = items.filter((item) => item.status === activeView);
-    }
+
     if (typeFilter !== "all") {
       items = items.filter((item) => item.media?.type === typeFilter);
     }
@@ -278,30 +277,36 @@ export default function DashboardPage() {
     const sorters: Record<SortOption, (a: any, b: any) => number> = {
       added: (a, b) => (b._creationTime || 0) - (a._creationTime || 0),
       release: (a, b) => {
-        const aDate = a.media?.releaseDate
-          ? new Date(a.media.releaseDate).getTime()
-          : 0;
-        const bDate = b.media?.releaseDate
-          ? new Date(b.media.releaseDate).getTime()
-          : 0;
+        const aDate = a.media?.releaseDate ? new Date(a.media.releaseDate).getTime() : 0;
+        const bDate = b.media?.releaseDate ? new Date(b.media.releaseDate).getTime() : 0;
         return bDate - aDate;
       },
       rating: (a, b) => (b.rating || 0) - (a.rating || 0),
-      alpha: (a, b) =>
-        (a.media?.title || "").localeCompare(b.media?.title || ""),
+      alpha: (a, b) => (a.media?.title || "").localeCompare(b.media?.title || ""),
       priority: (a, b) => {
-        const aPriority = a.priority
-          ? priorityOrder[a.priority as keyof typeof priorityOrder]
-          : 0;
-        const bPriority = b.priority
-          ? priorityOrder[b.priority as keyof typeof priorityOrder]
-          : 0;
-        return bPriority - aPriority;
+        const aP = a.priority ? priorityOrder[a.priority as keyof typeof priorityOrder] : 0;
+        const bP = b.priority ? priorityOrder[b.priority as keyof typeof priorityOrder] : 0;
+        return bP - aP;
       },
     };
 
     return items.sort(sorters[currentSort]);
-  }, [listItems, activeView, currentSort, typeFilter]);
+  }, [listItems, currentSort, typeFilter]);
+
+  // Section grouping
+  const sections = useMemo(() => {
+    if (!sortedItems) return undefined;
+    return classifyDashboardItems(sortedItems, today);
+  }, [sortedItems, today]);
+
+  // Reset to sensible default tab when switching lists
+  useEffect(() => {
+    if (!sections || !selectedListId) return;
+    const listKey = selectedListId.toString();
+    if (tabInitializedForList === listKey) return;
+    setActiveTab(getDefaultDashboardTab(sections));
+    setTabInitializedForList(listKey);
+  }, [sections, selectedListId, tabInitializedForList]);
 
   const currentRole = useMemo(() => {
     if (!selectedList || !user) return null;
@@ -346,6 +351,32 @@ export default function DashboardPage() {
     setSelectedListId(listId);
   };
 
+  const handleRefreshMedia = async () => {
+    if (!selectedListId || !canRefreshMedia) return;
+
+    setIsRefreshingMedia(true);
+    try {
+      const result = await refreshListMedia({ listId: selectedListId });
+      const { toast } = await import("sonner");
+      toast.success(
+        result.scheduled === 0
+          ? "List is empty — nothing to refresh"
+          : `Refreshing ${result.scheduled} title${result.scheduled === 1 ? "" : "s"} from TMDB`
+      );
+    } catch (error) {
+      const { toast } = await import("sonner");
+      const message =
+        error instanceof Error ? error.message : "Failed to refresh media";
+      toast.error(message);
+    } finally {
+      setIsRefreshingMedia(false);
+    }
+  };
+
+  const refreshButtonTitle = canRefreshMedia
+    ? "Refresh titles from TMDB"
+    : `Available in ${Math.ceil(refreshCooldownRemainingMs / 1000)}s`;
+
   const handleExportCSV = async () => {
     if (!selectedListId) return;
 
@@ -368,67 +399,182 @@ export default function DashboardPage() {
     }
   };
 
-  const renderItems = () => {
-    // === Loading (data not yet available)
-    if (filteredItems === undefined) {
+  const CardGrid = ({
+    items,
+    newlyReleasedIds,
+  }: {
+    items: typeof sortedItems;
+    newlyReleasedIds?: Set<string>;
+  }) => {
+    if (!items || items.length === 0) return null;
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
+        {items.map((item, index) => {
+          const isNewlyReleased = newlyReleasedIds?.has(item._id);
+          return (
+            <div
+              key={item._id}
+              className={cn(
+                isNewlyReleased &&
+                  "rounded-xl ring-2 ring-[var(--primary-400)] dark:ring-[var(--primary-500)] ring-offset-2 ring-offset-background"
+              )}
+            >
+              {isNewlyReleased && (
+                <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--primary-700)] dark:text-[var(--primary-300)] bg-[var(--primary-50)] dark:bg-[var(--primary-950)] rounded-t-xl border-b border-[var(--primary-200)] dark:border-[var(--primary-800)]">
+                  New season out
+                </div>
+              )}
+              <MediaCard
+                canEdit={canEdit}
+                listItem={item}
+                priority={index < 6}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderSections = () => {
+    if (sections === undefined) {
+      // Loading
       return (
-        <Masonry
-          breakpointCols={{
-            default: cardSize === "large" ? 2 : 4,
-            1600: cardSize === "large" ? 2 : 4,
-            1280: cardSize === "large" ? 2 : 3,
-            1024: cardSize === "large" ? 2 : 2,
-            768: 1,
-          }}
-          className="flex gap-4"
-          columnClassName="masonry-column flex flex-col gap-4"
-        >
-          {Array.from({ length: 8 }).map((_, i) => (
-            <MediaCardSkeleton key={i} size={cardSize} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <MediaCardSkeleton key={i} size="small" />
           ))}
-        </Masonry>
+        </div>
       );
     }
 
-    // === Empty state
-    if (filteredItems.length === 0) {
+    const totalItems =
+      sections.watchingNow.length +
+      sections.awaitingRelease.length +
+      sections.haventStarted.length +
+      sections.finished.length;
+
+    if (totalItems === 0) {
       return (
         <Card className="border-dashed">
           <CardHeader>
-            <CardTitle>No items match this view</CardTitle>
+            <CardTitle>Nothing here yet</CardTitle>
             <CardDescription>
-              Try another status, filter, or add media to this list.
+              {typeFilter !== "all"
+                ? `No ${typeFilter === "movie" ? "movies" : "TV shows"} in this list yet.`
+                : "Add movies and shows to start tracking."}
             </CardDescription>
           </CardHeader>
         </Card>
       );
     }
 
-    // === Ready state — show cards
-    const breakpoints = {
-      default: cardSize === "large" ? 2 : 4,
-      1600: cardSize === "large" ? 2 : 4,
-      1280: cardSize === "large" ? 2 : 3,
-      1024: cardSize === "large" ? 2 : 2,
-      768: 1,
+    const currentCount =
+      sections.watchingNow.length + sections.awaitingRelease.length;
+
+    const newlyReleasedIds = new Set(
+      sections.awaitingRelease
+        .filter((e) => e.newlyReleased)
+        .map((e) => e.item._id)
+    );
+
+    const awaitingReleaseItems = sections.awaitingRelease.map((e) => e.item);
+
+    const tabCounts = {
+      current: currentCount,
+      havent_started: sections.haventStarted.length,
+      finished: sections.finished.length,
     };
 
     return (
-      <Masonry
-        breakpointCols={breakpoints}
-        className="flex gap-4"
-        columnClassName="masonry-column flex flex-col gap-4"
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as DashboardTab)}
+        className="w-full"
       >
-        {filteredItems.map((item, index) => (
-          <MediaCard
-            key={item._id}
-            canEdit={canEdit}
-            listItem={item}
-            size={cardSize}
-            priority={index < 8} // Priority load first 8 items
-          />
-        ))}
-      </Masonry>
+        <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex h-auto sm:h-9 p-1 gap-1">
+          <TabsTrigger value="current" className="text-xs sm:text-sm px-2 sm:px-3">
+            Current
+            {tabCounts.current > 0 && (
+              <span className="ml-1.5 text-[10px] tabular-nums opacity-70">
+                {tabCounts.current}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="havent_started" className="text-xs sm:text-sm px-2 sm:px-3">
+            Haven&apos;t Started
+            {tabCounts.havent_started > 0 && (
+              <span className="ml-1.5 text-[10px] tabular-nums opacity-70">
+                {tabCounts.havent_started}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="finished" className="text-xs sm:text-sm px-2 sm:px-3">
+            Finished
+            {tabCounts.finished > 0 && (
+              <span className="ml-1.5 text-[10px] tabular-nums opacity-70">
+                {tabCounts.finished}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="current" className="mt-4 space-y-6">
+          {currentCount === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              Nothing in progress. Shows you&apos;re watching or waiting on will appear here.
+            </p>
+          ) : (
+            <>
+              {sections.watchingNow.length > 0 && (
+                <WatchSubSection
+                  title="Watching Now"
+                  count={sections.watchingNow.length}
+                  defaultOpen={true}
+                >
+                  <div className="pt-2">
+                    <CardGrid items={sections.watchingNow} />
+                  </div>
+                </WatchSubSection>
+              )}
+              {sections.awaitingRelease.length > 0 && (
+                <WatchSubSection
+                  title="Awaiting Release"
+                  count={sections.awaitingRelease.length}
+                  defaultOpen={true}
+                >
+                  <div className="pt-2">
+                    <CardGrid
+                      items={awaitingReleaseItems}
+                      newlyReleasedIds={newlyReleasedIds}
+                    />
+                  </div>
+                </WatchSubSection>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="havent_started" className="mt-4">
+          {sections.haventStarted.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              No unwatched items on your list.
+            </p>
+          ) : (
+            <CardGrid items={sections.haventStarted} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="finished" className="mt-4">
+          {sections.finished.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">
+              Nothing finished yet.
+            </p>
+          ) : (
+            <CardGrid items={sections.finished} />
+          )}
+        </TabsContent>
+      </Tabs>
     );
   };
 
@@ -825,6 +971,44 @@ export default function DashboardPage() {
                   </>
                 )}
 
+                {/* Refresh TMDB data - available to all list members */}
+                {selectedList && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={handleRefreshMedia}
+                      disabled={!canRefreshMedia}
+                      size="icon"
+                      className="md:hidden h-9 w-9"
+                      title={refreshButtonTitle}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "h-4 w-4",
+                          isRefreshingMedia && "animate-spin"
+                        )}
+                      />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleRefreshMedia}
+                      disabled={!canRefreshMedia}
+                      className="hidden md:flex"
+                      title={refreshButtonTitle}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          isRefreshingMedia && "animate-spin"
+                        )}
+                      />
+                      {refreshCooldownRemainingMs > 0
+                        ? `Refresh (${Math.ceil(refreshCooldownRemainingMs / 1000)}s)`
+                        : "Refresh"}
+                    </Button>
+                  </>
+                )}
+
                 {/* Export - Icon only on mobile, text on desktop */}
                 {selectedList && (
                   <>
@@ -900,177 +1084,53 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Filters/Toolbar - Only show when list is selected */}
+            {/* Toolbar - sort + type filter */}
             {selectedList && (
-              <>
-                <div className="px-3 py-2 md:px-6 md:py-3">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex-1">
-                        {selectedList.description && (
-                          <>
-                            {/* Desktop: show description */}
-                            <p className="text-sm text-muted-foreground hidden md:block">
-                              {selectedList.description}
-                            </p>
-                            {/* Mobile: collapsible description */}
-                            <details className="md:hidden">
-                              <summary className="text-sm text-muted-foreground cursor-pointer hover:underline">
-                                Show description
-                              </summary>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {selectedList.description}
-                              </p>
-                            </details>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Horizontal scrolling status pills */}
-                    <div className="overflow-x-auto -mx-3 px-3 md:mx-0 md:px-0">
-                      <div className="flex gap-1.5 md:gap-2 min-w-max">
-                        {VIEW_CHIPS.map((chip) => (
-                          <Button
-                            key={chip.value}
-                            variant="outline"
-                            size="sm"
-                            className={`rounded-full px-2 py-0.5 md:px-3 md:py-1 border-2 transition-colors text-xs md:text-sm h-7 md:h-9 flex-shrink-0 ${activeView === chip.value
-                              ? "border-primary bg-primary text-white hover:bg-primary/85 hover:border-primary hover:text-white dark:border-primary/80 dark:bg-primary/80 dark:hover:bg-primary/70 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
-                              : "border-border bg-background text-foreground hover:bg-muted/70 hover:border-border"
-                              }`}
-                            onClick={() => setActiveView(chip.value)}
-                          >
-                            <span>{chip.label}</span>
-                            <span
-                              className={`ml-1 md:ml-2 rounded-full border px-1.5 md:px-2 text-[10px] md:text-xs ${activeView === chip.value
-                                ? "border-white/70 bg-white/25 text-white dark:border-white/30 dark:bg-white/15"
-                                : "border-border bg-secondary text-foreground"
-                                }`}
-                            >
-                              {statusCounts[chip.value]}
-                            </span>
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                      {/* Card size selector - icon buttons */}
-                      <div className="hidden md:flex items-center gap-1 border rounded-md p-0.5">
-                        <Button
-                          variant={cardSize === "small" ? "secondary" : "ghost"}
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => setCardSize("small")}
-                          title="Small cards"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <rect x="3" y="3" width="7" height="7" />
-                            <rect x="14" y="3" width="7" height="7" />
-                            <rect x="3" y="14" width="7" height="7" />
-                            <rect x="14" y="14" width="7" height="7" />
-                          </svg>
-                        </Button>
-                        <Button
-                          variant={cardSize === "normal" ? "secondary" : "ghost"}
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => setCardSize("normal")}
-                          title="Normal cards"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <rect x="3" y="3" width="18" height="7" />
-                            <rect x="3" y="14" width="18" height="7" />
-                          </svg>
-                        </Button>
-                        <Button
-                          variant={cardSize === "large" ? "secondary" : "ghost"}
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => setCardSize("large")}
-                          title="Large cards"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <rect x="3" y="3" width="18" height="18" />
-                          </svg>
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
-                        <Select
-                          value={currentSort}
-                          onValueChange={(value) =>
-                            setSortByPerList((prev) => ({
-                              ...prev,
-                              [selectedListId!.toString()]: value as SortOption,
-                            }))
-                          }
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Sort by" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="added">Date added</SelectItem>
-                            <SelectItem value="release">Release year</SelectItem>
-                            <SelectItem value="rating">Rating</SelectItem>
-                            <SelectItem value="alpha">A–Z</SelectItem>
-                            <SelectItem value="priority">Priority</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={typeFilter}
-                          onValueChange={(value) =>
-                            setTypeFilter(value as TypeFilter)
-                          }
-                        >
-                          <SelectTrigger className="w-[150px]">
-                            <SelectValue placeholder="Type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All types</SelectItem>
-                            <SelectItem value="movie">Movies</SelectItem>
-                            <SelectItem value="tv">TV shows</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+              <div className="px-3 py-2 md:px-6 md:py-2 border-t border-border/40">
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedList.description && (
+                    <p className="w-full text-xs text-muted-foreground hidden md:block mb-1">
+                      {selectedList.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-1.5">
+                    <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select
+                      value={currentSort}
+                      onValueChange={(value) =>
+                        setSortByPerList((prev) => ({
+                          ...prev,
+                          [selectedListId!.toString()]: value as SortOption,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-[140px] text-xs">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="added">Date added</SelectItem>
+                        <SelectItem value="release">Release year</SelectItem>
+                        <SelectItem value="rating">Rating</SelectItem>
+                        <SelectItem value="alpha">A–Z</SelectItem>
+                        <SelectItem value="priority">Priority</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                  <Select
+                    value={typeFilter}
+                    onValueChange={(value) => setTypeFilter(value as TypeFilter)}
+                  >
+                    <SelectTrigger className="h-8 w-[120px] text-xs">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All types</SelectItem>
+                      <SelectItem value="movie">Movies</SelectItem>
+                      <SelectItem value="tv">TV shows</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -1087,25 +1147,18 @@ export default function DashboardPage() {
           {!isLoaded ? (
             // Show skeletons inside the dashboard layout while user/data load
             <div className="px-4 py-5 md:px-6">
-              <div
-                className="
-        grid
-        gap-6
-        sm:grid-cols-2
-        md:grid-cols-3
-        lg:grid-cols-4
-        xl:grid-cols-5
-      "
-              >
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <MediaCardSkeleton key={i} size={cardSize} />
+              <div className="sm:columns-2 lg:columns-3 gap-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="break-inside-avoid mb-3">
+                    <MediaCardSkeleton size="small" />
+                  </div>
                 ))}
               </div>
             </div>
           ) : selectedList ? (
             <div>
-              <div className="px-3 pt-2 pb-3 md:px-6 md:pt-3 md:pb-5">
-                {renderItems()}
+              <div className="px-3 pt-4 pb-6 md:px-6 md:pt-5 md:pb-8">
+                {renderSections()}
               </div>
             </div>
           ) : (

@@ -89,6 +89,14 @@ function handleConvexMutationError(error: Error) {
 	  return;
 	}
   
+	// Episode not yet released
+	if (message.includes("hasn't aired yet")) {
+	  toast.error("Episode not released yet", {
+		description: error.message,
+	  });
+	  return;
+	}
+
 	// Network / connectivity
 	if (message.includes("network")) {
 	  toast.error("Network error", {

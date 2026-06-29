@@ -6,6 +6,7 @@ import { api } from "@/convex/_generated/api";
 import type { MediaCardProps, StatusValue } from "./types";
 import { MediaCardSmall } from "./MediaCardSmall";
 import { MediaCardRegular } from "./MediaCardRegular";
+import { MediaCardMinimal } from "./MediaCardMinimal";
 import { formatDateDisplay } from "@/lib/dates";
 
 export function MediaCard({ canEdit, listItem, size = "small", priority = false }: MediaCardProps) {
@@ -109,6 +110,60 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
       successMessage: "Season dates updated",
     }
   );
+  const {
+    mutate: advanceEpisode,
+    isPending: isAdvancingEpisode,
+  } = useMutationWithError(
+    api.listItems.advanceEpisode,
+    {
+      successMessage: "Episode marked as watched",
+    }
+  );
+  const {
+    mutate: rewindEpisode,
+    isPending: isRewindingEpisode,
+  } = useMutationWithError(
+    api.listItems.rewindEpisode,
+    {
+      successMessage: "Rewound one episode",
+    }
+  );
+  const {
+    mutate: markSeasonWatched,
+    isPending: isMarkingSeasonWatched,
+  } = useMutationWithError(
+    api.listItems.markSeasonWatched,
+    {
+      successMessage: "Season marked as watched",
+    }
+  );
+  const {
+    mutate: startRewatch,
+    isPending: isStartingRewatch,
+  } = useMutationWithError(
+    api.listItems.startRewatch,
+    {
+      successMessage: "Rewatch started — tracker reset to S1E1",
+    }
+  );
+  const {
+    mutate: logWatchEntry,
+    isPending: isLoggingWatchEntry,
+  } = useMutationWithError(
+    api.listItems.logWatchEntry,
+    {
+      successMessage: "Watch entry logged",
+    }
+  );
+  const {
+    mutate: removeWatchEntry,
+    isPending: isRemovingWatchEntry,
+  } = useMutationWithError(
+    api.listItems.removeWatchEntry,
+    {
+      successMessage: "Watch entry removed",
+    }
+  );
 
   // Local state
   const [showSeasons, setShowSeasons] = useState(false);
@@ -183,6 +238,35 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
     await updateSeasonDates(args);
   };
 
+  const handleAdvanceEpisode = async () => {
+    await advanceEpisode({ listItemId: listItem._id });
+  };
+
+  const handleRewindEpisode = async () => {
+    await rewindEpisode({ listItemId: listItem._id });
+  };
+
+  const handleMarkSeasonWatched = async (seasonNumber: number) => {
+    await markSeasonWatched({ listItemId: listItem._id, seasonNumber });
+  };
+
+  const handleStartRewatch = async () => {
+    await startRewatch({ listItemId: listItem._id });
+  };
+
+  const handleLogWatchEntry = async (entry: {
+    startedAt?: number;
+    finishedAt?: number;
+    rating?: number;
+    notes?: string;
+  }) => {
+    await logWatchEntry({ listItemId: listItem._id, ...entry });
+  };
+
+  const handleRemoveWatchEntry = async (entryIndex: number) => {
+    await removeWatchEntry({ listItemId: listItem._id, entryIndex });
+  };
+
   // Helper functions
   const getSeasonStatus = (seasonNumber: number): StatusValue => {
     const prog = listItem.seasonProgress?.find((p) => p.seasonNumber === seasonNumber);
@@ -222,7 +306,15 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
     handleSeasonDatesChange,
     activeTab,
     setActiveTab,
-    // NEW loading flags
+    // Episode tracking handlers
+    handleAdvanceEpisode,
+    handleRewindEpisode,
+    handleMarkSeasonWatched,
+    // Rewatch handlers
+    handleStartRewatch,
+    handleLogWatchEntry,
+    handleRemoveWatchEntry,
+    // Loading flags
     isUpdatingStatus,
     isDeleting,
     isUpdatingRating,
@@ -234,11 +326,22 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
     isUpdatingSeasonRating,
     isUpdatingSeasonNotes,
     isUpdatingSeasonDates,
+    isAdvancingEpisode,
+    isRewindingEpisode,
+    isMarkingSeasonWatched,
+    isStartingRewatch,
+    isLoggingWatchEntry,
+    isRemovingWatchEntry,
   };
 
-  if (size === "small") {
-    return <MediaCardSmall {...commonProps} />;
+  // Default to minimal card; legacy sizes preserved for backward compat
+  if (!size || size === "small") {
+    return <MediaCardMinimal {...commonProps} priority={priority} />;
   }
 
-  return <MediaCardRegular {...commonProps} size={size} />;
+  if (size === "normal" || size === "large") {
+    return <MediaCardRegular {...commonProps} size={size} />;
+  }
+
+  return <MediaCardMinimal {...commonProps} priority={priority} />;
 }

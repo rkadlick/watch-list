@@ -68,9 +68,20 @@ export default defineSchema({
           seasonNumber: v.number(),
           episodeCount: v.number(),
           airDate: v.optional(v.string()),
+          episodes: v.optional(
+            v.array(
+              v.object({
+                episodeNumber: v.number(),
+                name: v.string(),
+                airDate: v.optional(v.string()),
+                overview: v.optional(v.string()),
+              })
+            )
+          ),
         })
       )
     ),
+    episodesPopulated: v.optional(v.boolean()),
   }).index("by_tmdb_id", ["tmdbId"]),
 
   listItems: defineTable({
@@ -108,13 +119,66 @@ export default defineSchema({
           notes: v.optional(v.string()), // Season-specific notes
           startedAt: v.optional(v.number()), // When season started
           finishedAt: v.optional(v.number()), // When season finished
+          episodeDates: v.optional(
+            v.array(
+              v.object({
+                episodeNumber: v.number(),
+                watchedAt: v.number(), // Timestamp when episode was checked off via advanceEpisode
+              })
+            )
+          ),
         })
       )
     ),
+    watchHistory: v.optional(
+      v.array(
+        v.object({
+          startedAt: v.optional(v.number()),
+          finishedAt: v.optional(v.number()),
+          rating: v.optional(v.number()),
+          notes: v.optional(v.string()),
+          // TV only — snapshot of seasonProgress at rewatch archive time
+          seasons: v.optional(
+            v.array(
+              v.object({
+                seasonNumber: v.number(),
+                startedAt: v.optional(v.number()),
+                finishedAt: v.optional(v.number()),
+                rating: v.optional(v.number()),
+                notes: v.optional(v.string()),
+                episodeDates: v.optional(
+                  v.array(
+                    v.object({
+                      episodeNumber: v.number(),
+                      watchedAt: v.number(),
+                    })
+                  )
+                ),
+              })
+            )
+          ),
+        })
+      )
+    ),
+    // Episode position tracking (TV only)
+    currentSeasonNumber: v.optional(v.number()),
+    currentEpisodeNumber: v.optional(v.number()),
+    // Drop position tracking (TV only)
+    droppedAtSeason: v.optional(v.number()),
+    droppedAtEpisode: v.optional(v.number()),
+    // Manual sort order within sections
+    sortOrder: v.optional(v.number()),
   })
     .index("by_list_id", ["listId"])
     .index("by_list_and_media", ["listId", "mediaId"])
     .index("by_media_id", ["mediaId"]), // Optional: Find all lists containing a media item
+
+  // Per-user cooldown for manual TMDB refresh on a list
+  tmdbRefreshCooldowns: defineTable({
+    userId: v.string(),
+    listId: v.id("lists"),
+    lastRefreshAt: v.number(),
+  }).index("by_user_and_list", ["userId", "listId"]),
 
   // TMDB search cache - stores search results to reduce API calls
   searchCache: defineTable({
