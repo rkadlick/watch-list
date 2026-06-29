@@ -33,7 +33,7 @@ import { ShareListDialog } from "@/components/ShareListDialog";
 import { EditListDialog } from "@/components/EditListDialog";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { WatchSubSection } from "@/components/section/WatchSection";
-import { Id } from "@/convex/_generated/dataModel";
+import { Doc, Id } from "@/convex/_generated/dataModel";
 import {
   ArrowUpDown,
   Menu,
@@ -69,6 +69,50 @@ import { cn } from "@/lib/utils";
 
 type TypeFilter = "all" | "movie" | "tv";
 type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
+
+type ListItemWithMedia = Doc<"listItems"> & {
+  media: Doc<"media"> | null;
+};
+
+function DashboardCardGrid({
+  items,
+  canEdit,
+  newlyReleasedIds,
+}: {
+  items: ListItemWithMedia[];
+  canEdit: boolean;
+  newlyReleasedIds?: Set<string>;
+}) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
+      {items.map((item, index) => {
+        const isNewlyReleased = newlyReleasedIds?.has(item._id);
+        return (
+          <div
+            key={item._id}
+            className={cn(
+              isNewlyReleased &&
+                "rounded-xl ring-2 ring-[var(--primary-400)] dark:ring-[var(--primary-500)] ring-offset-2 ring-offset-background"
+            )}
+          >
+            {isNewlyReleased && (
+              <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--primary-700)] dark:text-[var(--primary-300)] bg-[var(--primary-50)] dark:bg-[var(--primary-950)] rounded-t-xl border-b border-[var(--primary-200)] dark:border-[var(--primary-800)]">
+                New season out
+              </div>
+            )}
+            <MediaCard
+              canEdit={canEdit}
+              listItem={item}
+              priority={index < 6}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
@@ -155,9 +199,16 @@ export default function DashboardPage() {
   }, [isLoaded, user, syncUser]);
 
   useEffect(() => {
+    if (!refreshCooldown?.lastRefreshAt) return;
+
+    const remaining =
+      refreshCooldown.cooldownMs -
+      (Date.now() - refreshCooldown.lastRefreshAt);
+    if (remaining <= 0) return;
+
     const interval = setInterval(() => setRefreshTick(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshCooldown?.lastRefreshAt, refreshCooldown?.cooldownMs]);
 
   const refreshCooldownRemainingMs = useMemo(() => {
     if (!refreshCooldown?.lastRefreshAt) return 0;
@@ -399,43 +450,6 @@ export default function DashboardPage() {
     }
   };
 
-  const CardGrid = ({
-    items,
-    newlyReleasedIds,
-  }: {
-    items: typeof sortedItems;
-    newlyReleasedIds?: Set<string>;
-  }) => {
-    if (!items || items.length === 0) return null;
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
-        {items.map((item, index) => {
-          const isNewlyReleased = newlyReleasedIds?.has(item._id);
-          return (
-            <div
-              key={item._id}
-              className={cn(
-                isNewlyReleased &&
-                  "rounded-xl ring-2 ring-[var(--primary-400)] dark:ring-[var(--primary-500)] ring-offset-2 ring-offset-background"
-              )}
-            >
-              {isNewlyReleased && (
-                <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--primary-700)] dark:text-[var(--primary-300)] bg-[var(--primary-50)] dark:bg-[var(--primary-950)] rounded-t-xl border-b border-[var(--primary-200)] dark:border-[var(--primary-800)]">
-                  New season out
-                </div>
-              )}
-              <MediaCard
-                canEdit={canEdit}
-                listItem={item}
-                priority={index < 6}
-              />
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
   const renderSections = () => {
     if (sections === undefined) {
       // Loading
@@ -533,7 +547,10 @@ export default function DashboardPage() {
                   defaultOpen={true}
                 >
                   <div className="pt-2">
-                    <CardGrid items={sections.watchingNow} />
+                    <DashboardCardGrid
+                      items={sections.watchingNow}
+                      canEdit={canEdit}
+                    />
                   </div>
                 </WatchSubSection>
               )}
@@ -544,8 +561,9 @@ export default function DashboardPage() {
                   defaultOpen={true}
                 >
                   <div className="pt-2">
-                    <CardGrid
+                    <DashboardCardGrid
                       items={awaitingReleaseItems}
+                      canEdit={canEdit}
                       newlyReleasedIds={newlyReleasedIds}
                     />
                   </div>
@@ -561,7 +579,10 @@ export default function DashboardPage() {
               No unwatched items on your list.
             </p>
           ) : (
-            <CardGrid items={sections.haventStarted} />
+            <DashboardCardGrid
+              items={sections.haventStarted}
+              canEdit={canEdit}
+            />
           )}
         </TabsContent>
 
@@ -571,7 +592,7 @@ export default function DashboardPage() {
               Nothing finished yet.
             </p>
           ) : (
-            <CardGrid items={sections.finished} />
+            <DashboardCardGrid items={sections.finished} canEdit={canEdit} />
           )}
         </TabsContent>
       </Tabs>
