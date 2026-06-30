@@ -25,6 +25,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
 
@@ -67,7 +68,7 @@
    COLOR SCALES (50-800)
    ============================================ */
 :root {
-  --radius: 0.75rem;
+  --radius: 0.5rem;
 
   /* NEUTRAL - Cool Slate */
   --neutral-50: #F8F9FB;
@@ -156,7 +157,7 @@
   --foreground: var(--neutral-800);
 
   /* Surfaces */
-  --card: #DDE3E8;
+  --card: #FFFFFF;
   --card-foreground: var(--neutral-800);
   --popover: var(--neutral-100);
   --popover-foreground: var(--neutral-800);
@@ -171,11 +172,11 @@
 
   /* Muted states */
   --muted: var(--neutral-200);
-  --muted-foreground: var(--neutral-500);
+  --muted-foreground: var(--neutral-600);
 
   /* Accent - Primary */
   --accent: var(--primary-100);
-  --accent-foreground: var(--primary-600);
+  --accent-foreground: var(--primary-700);
 
   /* Destructive - Danger */
   --destructive: var(--danger-600);
@@ -186,7 +187,7 @@
   --success-foreground: var(--neutral-50);
 
   /* Warning */
-  --warning: var(--warning-600);
+  --warning: var(--warning-700);
   --warning-foreground: var(--neutral-50);
 
   /* Info */
@@ -194,7 +195,8 @@
   --info-foreground: var(--neutral-50);
 
   /* UI elements */
-  --border: var(--neutral-200);
+  --border: var(--neutral-400);
+  --border-strong: var(--neutral-500);
   --input: var(--neutral-100);
   --ring: var(--primary-600);
 
@@ -263,7 +265,8 @@
   --info-foreground: var(--neutral-800);
 
   /* UI elements */
-  --border: var(--neutral-600);
+  --border: var(--neutral-500);
+  --border-strong: var(--neutral-400);
   --input: var(--neutral-700);
   --ring: var(--primary-200);
 
@@ -302,7 +305,7 @@
 }
 
 .dark .status-watching {
-  @apply bg-[var(--primary-700)] text-[var(--primary-300)] border border-[var(--primary-300)]/30 shadow-sm;
+  @apply bg-[var(--primary-800)] text-[var(--primary-200)] border border-[var(--primary-300)]/40 shadow-sm;
 }
 
 /* To Watch - Neutral Gray */
@@ -320,7 +323,7 @@
 }
 
 .dark .status-watched {
-  @apply bg-[var(--success-700)] text-[var(--success-300)] border border-[var(--success-300)]/30 shadow-sm;
+  @apply bg-[var(--success-800)] text-[var(--success-200)] border border-[var(--success-300)]/40 shadow-sm;
 }
 
 /* Dropped - Danger (soft) */
@@ -392,6 +395,18 @@
 
 .dark .role-viewer {
   @apply bg-[var(--neutral-600)] text-[var(--neutral-300)] border border-[var(--neutral-400)]/30 shadow-sm;
+}
+
+/* ============================================
+   SURFACE CARDS
+   ============================================ */
+.surface-card {
+  background-color: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-bottom-color: var(--border-strong);
+  border-radius: var(--radius-md);
 }
 
 /* ============================================

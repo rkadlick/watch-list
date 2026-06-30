@@ -56,11 +56,11 @@ export function EpisodeList({
     <div>
       {/* "All watched" button — only shown when season not yet fully watched */}
       {canEdit && !isWatched && (
-        <div className="flex justify-end pb-2 mb-2 border-b border-border/40">
+        <div className="flex justify-end pb-2 mb-2 border-b border-border">
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 text-xs px-2 text-muted-foreground hover:text-[var(--success-600)] dark:hover:text-[var(--success-400)] hover:bg-[var(--success-50)] dark:hover:bg-[var(--success-950)]"
+            className="h-6 text-xs px-2 text-muted-foreground hover:text-[var(--success-700)] dark:hover:text-[var(--success-300)] hover:bg-[var(--success-50)] dark:hover:bg-[var(--success-800)]"
             onClick={() => onMarkSeasonWatched(seasonNumber)}
             disabled={isMarkingSeasonWatched || hasUnreleasedEpisodes}
             title={hasUnreleasedEpisodes ? "Some episodes haven't aired yet" : undefined}
@@ -94,17 +94,17 @@ export function EpisodeList({
                 className={cn(
                   "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
                   isEpWatched
-                    ? "bg-[var(--success-500)] border-[var(--success-500)]"
+                    ? "bg-[var(--success-600)] border-[var(--success-600)] dark:bg-[var(--success-500)] dark:border-[var(--success-500)]"
                     : isCurrent
-                      ? "border-[var(--primary-500)] bg-[var(--primary-50)] dark:bg-[var(--primary-950)]"
+                      ? "border-[var(--primary-600)] bg-[var(--primary-50)] dark:border-[var(--primary-400)] dark:bg-[var(--primary-800)]"
                       : unreleased
-                        ? "border-border/25 bg-transparent"
-                        : "border-border/40 bg-transparent"
+                        ? "border-border bg-muted/40"
+                        : "border-border bg-transparent"
                 )}
               >
                 {isEpWatched && <Check className="h-2.5 w-2.5 text-white" />}
                 {!isEpWatched && unreleased && (
-                  <Lock className="h-2.5 w-2.5 text-muted-foreground/30" />
+                  <Lock className="h-2.5 w-2.5 text-muted-foreground" />
                 )}
               </div>
 
@@ -113,12 +113,10 @@ export function EpisodeList({
                 className={cn(
                   "text-[10px] tabular-nums leading-none",
                   isEpWatched
-                    ? "text-[var(--success-600)] dark:text-[var(--success-400)]"
+                    ? "text-[var(--success-700)] dark:text-[var(--success-300)]"
                     : isCurrent
-                      ? "text-[var(--primary-600)] dark:text-[var(--primary-400)] font-semibold"
-                      : unreleased
-                        ? "text-muted-foreground/25"
-                        : "text-muted-foreground/50"
+                      ? "text-[var(--primary-700)] dark:text-[var(--primary-300)] font-semibold"
+                      : "text-muted-foreground"
                 )}
               >
                 E{epNum}

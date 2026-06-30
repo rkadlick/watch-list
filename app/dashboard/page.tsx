@@ -44,6 +44,9 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Film,
+  Tv,
+  LayoutGrid,
 } from "lucide-react";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
 import {
@@ -69,6 +72,16 @@ import { cn } from "@/lib/utils";
 
 type TypeFilter = "all" | "movie" | "tv";
 type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
+
+const TYPE_FILTER_OPTIONS: {
+  value: TypeFilter;
+  label: string;
+  icon: typeof LayoutGrid;
+}[] = [
+  { value: "all", label: "All", icon: LayoutGrid },
+  { value: "movie", label: "Movies", icon: Film },
+  { value: "tv", label: "TV", icon: Tv },
+];
 
 type ListItemWithMedia = Doc<"listItems"> & {
   media: Doc<"media"> | null;
@@ -98,7 +111,7 @@ function DashboardCardGrid({
             )}
           >
             {isNewlyReleased && (
-              <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--primary-700)] dark:text-[var(--primary-300)] bg-[var(--primary-50)] dark:bg-[var(--primary-950)] rounded-t-xl border-b border-[var(--primary-200)] dark:border-[var(--primary-800)]">
+              <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--primary-700)] dark:text-[var(--primary-200)] bg-[var(--primary-50)] dark:bg-[var(--primary-800)] rounded-t-xl border-b border-[var(--primary-200)] dark:border-[var(--primary-600)]">
                 New season out
               </div>
             )}
@@ -355,9 +368,18 @@ export default function DashboardPage() {
     if (!sections || !selectedListId) return;
     const listKey = selectedListId.toString();
     if (tabInitializedForList === listKey) return;
-    setActiveTab(getDefaultDashboardTab(sections));
+    setActiveTab(getDefaultDashboardTab(sections, typeFilter));
     setTabInitializedForList(listKey);
-  }, [sections, selectedListId, tabInitializedForList]);
+  }, [sections, selectedListId, tabInitializedForList, typeFilter]);
+
+  const showCurrentTab = typeFilter !== "movie";
+
+  // Movies have no "current" bucket — keep tab selection valid
+  useEffect(() => {
+    if (!showCurrentTab && activeTab === "current") {
+      setActiveTab("havent_started");
+    }
+  }, [showCurrentTab, activeTab]);
 
   const currentRole = useMemo(() => {
     if (!selectedList || !user) return null;
@@ -506,19 +528,26 @@ export default function DashboardPage() {
         onValueChange={(v) => setActiveTab(v as DashboardTab)}
         className="w-full"
       >
-        <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex h-auto sm:h-9 p-1 gap-1">
-          <TabsTrigger value="current" className="text-xs sm:text-sm px-2 sm:px-3">
-            Current
-            {tabCounts.current > 0 && (
-              <span className="ml-1.5 text-[10px] tabular-nums opacity-70">
-                {tabCounts.current}
-              </span>
-            )}
-          </TabsTrigger>
+        <TabsList
+          className={cn(
+            "w-full sm:w-auto grid sm:inline-flex h-auto sm:h-9 p-1 gap-1",
+            showCurrentTab ? "grid-cols-3" : "grid-cols-2"
+          )}
+        >
+          {showCurrentTab && (
+            <TabsTrigger value="current" className="text-xs sm:text-sm px-2 sm:px-3">
+              Current
+              {tabCounts.current > 0 && (
+                <span className="ml-1.5 text-[10px] tabular-nums text-muted-foreground">
+                  {tabCounts.current}
+                </span>
+              )}
+            </TabsTrigger>
+          )}
           <TabsTrigger value="havent_started" className="text-xs sm:text-sm px-2 sm:px-3">
             Haven&apos;t Started
             {tabCounts.havent_started > 0 && (
-              <span className="ml-1.5 text-[10px] tabular-nums opacity-70">
+              <span className="ml-1.5 text-[10px] tabular-nums text-muted-foreground">
                 {tabCounts.havent_started}
               </span>
             )}
@@ -526,13 +555,14 @@ export default function DashboardPage() {
           <TabsTrigger value="finished" className="text-xs sm:text-sm px-2 sm:px-3">
             Finished
             {tabCounts.finished > 0 && (
-              <span className="ml-1.5 text-[10px] tabular-nums opacity-70">
+              <span className="ml-1.5 text-[10px] tabular-nums text-muted-foreground">
                 {tabCounts.finished}
               </span>
             )}
           </TabsTrigger>
         </TabsList>
 
+        {showCurrentTab && (
         <TabsContent value="current" className="mt-4 space-y-6">
           {currentCount === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">
@@ -572,6 +602,7 @@ export default function DashboardPage() {
             </>
           )}
         </TabsContent>
+        )}
 
         <TabsContent value="havent_started" className="mt-4">
           {sections.haventStarted.length === 0 ? (
@@ -608,11 +639,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
+    <div className="flex h-dvh w-full bg-background text-foreground overflow-hidden">
       {/* Sidebar - fixed to side, has its own scroll if needed */}
       <div
         className={`fixed inset-y-0 left-0 z-30 border-r bg-sidebar text-sidebar-foreground transition-all duration-200 md:static md:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-          } ${isSidebarCollapsed ? "md:w-16" : "md:w-72"} w-72 flex flex-col h-screen md:h-full shrink-0`}
+          } ${isSidebarCollapsed ? "md:w-16" : "md:w-72"} w-72 flex flex-col h-dvh md:h-full shrink-0`}
       >
         <div className="flex items-center justify-between bg-gradient-to-b from-sidebar/50 to-transparent px-4 py-4 pb-6">
           {!isSidebarCollapsed && (
@@ -1107,7 +1138,7 @@ export default function DashboardPage() {
 
             {/* Toolbar - sort + type filter */}
             {selectedList && (
-              <div className="px-3 py-2 md:px-6 md:py-2 border-t border-border/40">
+              <div className="px-3 py-2 md:px-6 md:py-2 border-t border-border">
                 <div className="flex flex-wrap items-center gap-2">
                   {selectedList.description && (
                     <p className="w-full text-xs text-muted-foreground hidden md:block mb-1">
@@ -1137,19 +1168,28 @@ export default function DashboardPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Select
-                    value={typeFilter}
-                    onValueChange={(value) => setTypeFilter(value as TypeFilter)}
-                  >
-                    <SelectTrigger className="h-8 w-[120px] text-xs">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All types</SelectItem>
-                      <SelectItem value="movie">Movies</SelectItem>
-                      <SelectItem value="tv">TV shows</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="inline-flex items-center rounded-lg border border-border bg-muted/30 p-0.5">
+                    {TYPE_FILTER_OPTIONS.map(({ value, label, icon: Icon }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setTypeFilter(value)}
+                        className={cn(
+                          "inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                          typeFilter === value
+                            ? "bg-background text-foreground shadow-sm"
+                            : "text-muted-foreground hover:text-foreground hover:bg-background/60"
+                        )}
+                        title={label}
+                        aria-label={label}
+                        aria-pressed={typeFilter === value}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">{label}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -1164,7 +1204,7 @@ export default function DashboardPage() {
         </div>
 
         {/* SCROLLABLE MEDIA CONTENT AREA */}
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain">
           {!isLoaded ? (
             // Show skeletons inside the dashboard layout while user/data load
             <div className="px-4 py-5 md:px-6">
@@ -1178,7 +1218,7 @@ export default function DashboardPage() {
             </div>
           ) : selectedList ? (
             <div>
-              <div className="px-3 pt-4 pb-6 md:px-6 md:pt-5 md:pb-8">
+              <div className="px-3 pt-4 pb-[calc(2rem+env(safe-area-inset-bottom,0px))] md:px-6 md:pt-5 md:pb-8">
                 {renderSections()}
               </div>
             </div>

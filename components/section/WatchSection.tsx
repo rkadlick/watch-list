@@ -22,9 +22,9 @@ const accentStyles = {
 };
 
 const accentCountStyles = {
-  primary: "bg-[var(--primary-100)] dark:bg-[var(--primary-900)] text-[var(--primary-700)] dark:text-[var(--primary-300)]",
-  warning: "bg-[var(--warning-100)] dark:bg-[var(--warning-900)] text-[var(--warning-700)] dark:text-[var(--warning-300)]",
-  success: "bg-[var(--success-100)] dark:bg-[var(--success-900)] text-[var(--success-700)] dark:text-[var(--success-300)]",
+  primary: "bg-[var(--primary-100)] dark:bg-[var(--primary-800)] text-[var(--primary-700)] dark:text-[var(--primary-200)]",
+  warning: "bg-[var(--warning-100)] dark:bg-[var(--warning-800)] text-[var(--warning-700)] dark:text-[var(--warning-200)]",
+  success: "bg-[var(--success-100)] dark:bg-[var(--success-800)] text-[var(--success-700)] dark:text-[var(--success-200)]",
   neutral: "bg-muted text-muted-foreground",
 };
 
@@ -110,7 +110,7 @@ export function WatchSubSection({
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           {title}
         </span>
-        <span className="text-xs text-muted-foreground/60 tabular-nums">({count})</span>
+        <span className="text-xs text-muted-foreground tabular-nums">({count})</span>
       </button>
 
       {isOpen && <div>{children}</div>}

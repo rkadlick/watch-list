@@ -227,7 +227,7 @@ function WatchHistorySection({
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <button
-                    className="shrink-0 text-muted-foreground/40 hover:text-[var(--danger-500)] transition-colors"
+                    className="shrink-0 text-muted-foreground hover:text-[var(--danger-600)] dark:hover:text-[var(--danger-300)] transition-colors"
                     disabled={isRemovingWatchEntry}
                   >
                     <Trash2 className="h-3 w-3" />
@@ -429,12 +429,12 @@ export function DetailSheet({
                   const isSeasonExpanded = openSeason === seasonKey;
 
                   return (
-                    <div key={seasonKey} className="rounded-lg border border-border/40 overflow-hidden">
+                    <div key={seasonKey} className="rounded-md border border-border overflow-hidden">
                       <button
                         type="button"
                         className={cn(
                           "w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-muted/50 transition-colors",
-                          isCurrentSeason && "bg-[var(--primary-50)] dark:bg-[var(--primary-950)]"
+                          isCurrentSeason && "bg-[var(--primary-50)] dark:bg-[var(--primary-800)]"
                         )}
                         onClick={() => setOpenSeason(isSeasonExpanded ? undefined : seasonKey)}
                       >
@@ -446,7 +446,7 @@ export function DetailSheet({
                             Season {season.seasonNumber}
                           </span>
                           {isCurrentSeason && !isSeasonWatched && (
-                            <Badge className="text-[10px] px-1.5 py-0 bg-[var(--primary-100)] dark:bg-[var(--primary-900)] text-[var(--primary-700)] dark:text-[var(--primary-300)] border-0">
+                            <Badge className="text-[10px] px-1.5 py-0 bg-[var(--primary-100)] dark:bg-[var(--primary-800)] text-[var(--primary-700)] dark:text-[var(--primary-200)] border-0">
                               Watching
                             </Badge>
                           )}
@@ -469,7 +469,7 @@ export function DetailSheet({
                       </button>
 
                       {isSeasonExpanded && (
-                        <div className="px-3 pb-3 pt-1 border-t border-border/30">
+                        <div className="px-3 pb-3 pt-1 border-t border-border">
                           <SeasonEditForm
                             canEdit={canEdit}
                             seasonNumber={season.seasonNumber}

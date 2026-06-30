@@ -112,7 +112,7 @@ export function TrackingForm({
 
           {(startedAt || finishedAt) && (
             <>
-              <span className="text-muted-foreground/40">→</span>
+              <span className="text-muted-foreground">→</span>
               <DatePicker
                 value={finishedAt}
                 onChange={handleFinishedChange}
@@ -128,7 +128,7 @@ export function TrackingForm({
   );
 
   const tagsSection = (
-    <div className="border border-border/50 rounded-md bg-muted/30 px-3 py-2">
+    <div className="border border-border rounded-md bg-muted/30 px-3 py-2">
       <div className="flex flex-wrap gap-1.5 items-center">
         {tags.map((tag) => (
           <Badge
@@ -164,7 +164,7 @@ export function TrackingForm({
           canEdit && (
             <button
               onClick={() => setIsAddingTag(true)}
-              className="flex items-center gap-0.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+              className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               disabled={isUpdatingTags}
             >
               <Plus className="h-3 w-3" />
@@ -177,7 +177,7 @@ export function TrackingForm({
   );
 
   const notesSection = canEdit && (
-    <div className="border border-border/50 rounded-md bg-muted/30 px-3 py-2">
+    <div className="border border-border rounded-md bg-muted/30 px-3 py-2">
       {isEditingNotes ? (
         <Textarea
           placeholder="Your thoughts about this show..."
@@ -198,7 +198,7 @@ export function TrackingForm({
       ) : (
         <button
           onClick={() => setIsEditingNotes(true)}
-          className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         >
           <Plus className="h-3 w-3" />
           Add notes

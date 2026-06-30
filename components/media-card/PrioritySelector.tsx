@@ -78,7 +78,7 @@ export function PrioritySelector({
             </>
           ) : (
             <>
-              <Circle className={cn(iconSize, "text-muted-foreground/50")} />
+              <Circle className={cn(iconSize, "text-muted-foreground")} />
               <span className={cn(textSize)}>Priority</span>
             </>
           )}

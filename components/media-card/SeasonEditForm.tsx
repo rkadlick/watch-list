@@ -64,7 +64,7 @@ export function SeasonEditForm({
   return (
     <div className="space-y-3 pt-2">
       {metaParts.length > 0 && (
-        <div className="text-xs text-muted-foreground/70 pb-1">
+        <div className="text-xs text-muted-foreground pb-1">
           {metaParts.join(" • ")}
         </div>
       )}
@@ -88,11 +88,11 @@ export function SeasonEditForm({
           </div>
         </div>
       ) : (
-        <div className="text-xs text-muted-foreground/60 py-1">No episodes watched yet</div>
+        <div className="text-xs text-muted-foreground py-1">No episodes watched yet</div>
       )}
 
       {canEdit && (
-        <div className="border border-border/50 rounded-md bg-muted/30 px-3 py-2">
+        <div className="border border-border rounded-md bg-muted/30 px-3 py-2">
           {isEditingNotes ? (
             <Textarea
               placeholder={`Notes for Season ${seasonNumber}...`}
@@ -113,7 +113,7 @@ export function SeasonEditForm({
           ) : (
             <button
               onClick={() => setIsEditingNotes(true)}
-              className="flex items-center gap-1 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               <Plus className="h-3 w-3" />
               Add note

@@ -146,7 +146,7 @@ export function DatePicker({
         <button
           className={cn(
             "flex items-center gap-1.5 text-xs hover:text-foreground transition-colors cursor-pointer",
-            value ? "text-muted-foreground" : "text-muted-foreground/60"
+            "text-muted-foreground"
           )}
         >
           <Calendar className="h-3 w-3" />

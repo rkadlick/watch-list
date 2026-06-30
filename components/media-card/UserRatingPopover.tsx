@@ -86,7 +86,7 @@ export function UserRatingPopover({
                     starSize,
                     displayRating && value <= displayRating
                       ? "fill-[var(--rating-400)] text-[var(--rating-500)]"
-                      : "text-muted-foreground/40"
+                      : "text-muted-foreground"
                   )}
                 />
               </button>

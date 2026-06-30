@@ -94,7 +94,7 @@ function StarRatingPicker({
                 "h-5 w-5",
                 displayRating && rating <= displayRating
                   ? "fill-amber-400 text-amber-400"
-                  : "text-muted-foreground/40"
+                  : "text-muted-foreground"
               )}
             />
           </button>
@@ -183,7 +183,7 @@ export function SeasonAccordion({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 text-xs px-2 text-[var(--success-600)] dark:text-[var(--success-400)] hover:bg-[var(--success-50)] dark:hover:bg-[var(--success-950)]"
+                      className="h-6 text-xs px-2 text-[var(--success-700)] dark:text-[var(--success-300)] hover:bg-[var(--success-50)] dark:hover:bg-[var(--success-800)]"
                       onClick={() => handleMarkSeasonWatched(season.seasonNumber)}
                       disabled={isMarkingSeasonWatched}
                       title="Mark season as watched"
@@ -231,7 +231,7 @@ export function SeasonAccordion({
                             "hover:bg-accent/50",
                             seasonProgress?.rating
                               ? "text-amber-500"
-                              : "text-muted-foreground/50 hover:text-amber-500"
+                              : "text-muted-foreground hover:text-[var(--rating-600)] dark:hover:text-[var(--rating-400)]"
                           )}
                           disabled={isUpdatingSeasonRating}
                         >

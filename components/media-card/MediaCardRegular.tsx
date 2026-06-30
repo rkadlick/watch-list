@@ -165,7 +165,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
                 {media.title}
               </CardTitle>
               {/* Meta info with dot separators */}
-              <div className={`text-sm text-muted-foreground/70 mt-1`}>
+              <div className={`text-sm text-muted-foreground mt-1`}>
                 {buildMetaInfo()}
               </div>
             </div>
@@ -247,7 +247,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
             {/* Genres - dot separated */}
             {media.genres && media.genres.length > 0 && (
               <div
-                className={`${config.textSize} text-muted-foreground/70`}
+                className={`${config.textSize} text-muted-foreground`}
                 title={`Genres: ${media.genres.map(g => g.name).join(", ")}`}
               >
                 {media.genres.slice(0, size === "large" ? 6 : 4).map(g => g.name).join(" • ")}
@@ -294,7 +294,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
             {/* Date (Watched for movies, Started for shows) */}
             {(media.type === "movie" && finishedAt) || (media.type === "tv" && startedAt) ? (
               <div
-                className={`${config.textSize} text-muted-foreground/70 flex items-center gap-1.5`}
+                className={`${config.textSize} text-muted-foreground flex items-center gap-1.5`}
                 title={media.type === "movie" ? "Finished Date" : "Started Date"}
               >
                 <Calendar className={config.iconSize} />
@@ -307,7 +307,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
             {/* Tags - dot separated */}
             {tags && tags.length > 0 && (
               <div
-                className={`${config.textSize} text-muted-foreground/70`}
+                className={`${config.textSize} text-muted-foreground`}
                 title={`Tags: ${tags.join(", ")}`}
               >
                 {tags.slice(0, size === "large" ? 5 : 4).join(" • ")}
@@ -318,7 +318,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
             {/* Notes preview */}
             {notes && (
               <div
-                className={`${config.textSize} text-muted-foreground/60 italic ${size === "large" ? "line-clamp-3" : "line-clamp-2"
+                className={`${config.textSize} text-muted-foreground italic ${size === "large" ? "line-clamp-3" : "line-clamp-2"
                   }`}
                 title="Notes"
               >
@@ -425,7 +425,7 @@ export function MediaCardRegular(props: MediaCardRegularComponentProps) {
 
       {/* FOOTER: Added date */}
       <div className="px-4 pb-3 text-right">
-        <span className="text-xs text-muted-foreground/50">
+        <span className="text-xs text-muted-foreground">
           Added {formatAddedDate(_creationTime)}
         </span>
       </div>

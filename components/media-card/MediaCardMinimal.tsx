@@ -21,11 +21,13 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronRight,
+  Film,
   Lock,
   Pencil,
   Plus,
   RotateCcw,
   Trash2,
+  Tv,
   XCircle,
 } from "lucide-react";
 import { getMediaBlurPlaceholder } from "@/lib/image-utils";
@@ -199,7 +201,18 @@ export function MediaCardMinimal({
 
   return (
     <>
-      <div className="bg-card border border-border rounded-xl overflow-hidden transition-shadow hover:shadow-md">
+      <div className="surface-card relative overflow-hidden transition-shadow hover:shadow-md">
+
+        <div
+          className="absolute top-2 right-2 z-10 pointer-events-none text-muted-foreground"
+          aria-hidden
+        >
+          {isMovie ? (
+            <Film className="h-3.5 w-3.5" />
+          ) : (
+            <Tv className="h-3.5 w-3.5" />
+          )}
+        </div>
 
         {/* ── Collapsed header – relative so chevron can be anchored bottom-right ── */}
         <div className="relative">
@@ -230,7 +243,7 @@ export function MediaCardMinimal({
                   priority={priority}
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 text-lg">
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-lg">
                   {isMovie ? "🎬" : "📺"}
                 </div>
               )}
@@ -248,7 +261,7 @@ export function MediaCardMinimal({
               <div className="font-bold text-base leading-tight truncate">{media.title}</div>
 
               {/* Meta */}
-              <div className="text-xs text-muted-foreground/60 mt-0.5 flex items-center gap-1 flex-wrap">
+              <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
                 {year && <span>{year}</span>}
                 {isTV && media.totalSeasons && (
                   <>
@@ -268,31 +281,31 @@ export function MediaCardMinimal({
               {showEpisodePosition && (
                 <div className="mt-2">
                   {isWatching && !currentEpLocked && (
-                    <div className="text-xs text-muted-foreground/60 tabular-nums">
+                    <div className="text-xs text-muted-foreground tabular-nums">
                       {episodesLeft > 0
                         ? `${episodesLeft} ep${episodesLeft !== 1 ? "s" : ""} left${seasonsLeft > 0 ? ` · ${seasonsLeft} ${seasonsLeft === 1 ? "season" : "seasons"} left` : ""}`
                         : "Last episode"}
                     </div>
                   )}
                   {isWatching && currentEpLocked && (
-                    <div className="text-xs text-muted-foreground/40">Not released yet</div>
+                    <div className="text-xs text-muted-foreground">Not released yet</div>
                   )}
                   {isToWatch && (
-                    <div className="text-xs text-muted-foreground/40">Not started</div>
+                    <div className="text-xs text-muted-foreground">Not started</div>
                   )}
                 </div>
               )}
 
               {/* Dropped label */}
               {isDropped && droppedLabel && (
-                <div className="mt-1.5 text-xs text-[var(--danger-500)] dark:text-[var(--danger-400)]">
+                <div className="mt-1.5 text-xs text-[var(--danger-600)] dark:text-[var(--danger-300)]">
                   Dropped · {droppedLabel}
                 </div>
               )}
 
               {/* New season badge */}
               {showNewSeasonBadge && (
-                <Badge className="mt-1.5 text-[10px] px-1.5 py-0 bg-[var(--primary-100)] dark:bg-[var(--primary-900)] text-[var(--primary-700)] dark:text-[var(--primary-300)] border-0">
+                <Badge className="mt-1.5 text-[10px] px-1.5 py-0 bg-[var(--primary-100)] dark:bg-[var(--primary-800)] text-[var(--primary-700)] dark:text-[var(--primary-200)] border-0">
                   New season coming
                 </Badge>
               )}
@@ -313,7 +326,7 @@ export function MediaCardMinimal({
                     S{String(curSeason).padStart(2, "0")} | E{String(curEpisode).padStart(2, "0")}
                   </span>
                   {currentEpLocked && currentEpAirDateFormatted && (
-                    <span className="text-[10px] text-muted-foreground/50 tabular-nums mt-0.5">
+                    <span className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
                       {currentEpAirDateFormatted}
                     </span>
                   )}
@@ -324,9 +337,9 @@ export function MediaCardMinimal({
                 <button
                   className={cn(
                     "h-11 w-11 rounded-full border-2 flex items-center justify-center transition-all duration-150",
-                    "border-border/50 text-muted-foreground/50 bg-background",
-                    "hover:border-[var(--success-500)] hover:text-[var(--success-600)] hover:bg-[var(--success-50)]",
-                    "dark:hover:border-[var(--success-400)] dark:hover:text-[var(--success-400)] dark:hover:bg-[var(--success-950)]",
+                    "border-border text-muted-foreground bg-background",
+                    "hover:border-[var(--success-600)] hover:text-[var(--success-700)] hover:bg-[var(--success-50)]",
+                    "dark:hover:border-[var(--success-400)] dark:hover:text-[var(--success-300)] dark:hover:bg-[var(--success-800)]",
                     (isAdvancingEpisode || isUpdatingStatus) && "opacity-40 cursor-not-allowed"
                   )}
                   onClick={handleMovieMarkWatched}
@@ -342,7 +355,7 @@ export function MediaCardMinimal({
 
               {canEdit && !isDone && isTV && currentEpLocked && (
                 <div
-                  className="h-11 w-11 rounded-full border-2 flex items-center justify-center border-border/40 text-muted-foreground/45 bg-muted/20"
+                  className="h-11 w-11 rounded-full border-2 flex items-center justify-center border-border text-muted-foreground bg-muted/30"
                   title={`Not released yet${currentEpAirDateFormatted ? ` · ${currentEpAirDateFormatted}` : ""}`}
                 >
                   <Lock className="h-5 w-5" />
@@ -353,9 +366,9 @@ export function MediaCardMinimal({
                 <button
                   className={cn(
                     "h-11 w-11 rounded-full border-2 flex items-center justify-center transition-all duration-150",
-                    "border-border/50 text-muted-foreground/50 bg-background",
-                    "hover:border-[var(--success-500)] hover:text-[var(--success-600)] hover:bg-[var(--success-50)]",
-                    "dark:hover:border-[var(--success-400)] dark:hover:text-[var(--success-400)] dark:hover:bg-[var(--success-950)]",
+                    "border-border text-muted-foreground bg-background",
+                    "hover:border-[var(--success-600)] hover:text-[var(--success-700)] hover:bg-[var(--success-50)]",
+                    "dark:hover:border-[var(--success-400)] dark:hover:text-[var(--success-300)] dark:hover:bg-[var(--success-800)]",
                     (isAdvancingEpisode || isUpdatingStatus) && "opacity-40 cursor-not-allowed"
                   )}
                   onClick={handleAdvanceWithToast}
@@ -371,13 +384,13 @@ export function MediaCardMinimal({
 
               {isWatched && (
                 <div className="h-11 w-11 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="h-8 w-8 text-[var(--success-500)] dark:text-[var(--success-400)]" />
+                  <CheckCircle2 className="h-8 w-8 text-[var(--success-600)] dark:text-[var(--success-300)]" />
                 </div>
               )}
 
               {isDropped && (
                 <div className="h-11 w-11 rounded-full flex items-center justify-center">
-                  <XCircle className="h-8 w-8 text-[var(--danger-400)] dark:text-[var(--danger-500)]" />
+                  <XCircle className="h-8 w-8 text-[var(--danger-600)] dark:text-[var(--danger-300)]" />
                 </div>
               )}
             </div>
@@ -386,7 +399,7 @@ export function MediaCardMinimal({
           {/* Expand chevron — bottom-right corner of the collapsed header */}
           {isExpandable && (
             <button
-              className="absolute bottom-1 right-2 p-1.5 text-muted-foreground/35 hover:text-muted-foreground/70 transition-colors rounded"
+              className="absolute bottom-1 right-2 p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"
               onClick={() => setIsExpanded(!isExpanded)}
               title={isExpanded ? "Collapse" : isTV ? "Show seasons" : "More info"}
             >
@@ -399,7 +412,7 @@ export function MediaCardMinimal({
 
         {/* ── Expanded panel (TV: providers + seasons / Movie: providers + actions) ── */}
         {isExpandable && isExpanded && (
-          <div className="border-t border-border/50 px-3 pb-3 pt-2 space-y-1.5">
+          <div className="border-t border-border px-3 pb-3 pt-2 space-y-1.5">
 
             {/* Watch providers — centered at the top for both TV and movie */}
             {media.watchProviders && media.watchProviders.length > 0 && (
@@ -431,28 +444,28 @@ export function MediaCardMinimal({
               const isSeasonExpanded = expandedSeason === season.seasonNumber;
 
               return (
-                <div key={season.seasonNumber} className="rounded-lg border border-border/40 overflow-hidden">
+                <div key={season.seasonNumber} className="rounded-md border border-border overflow-hidden">
                   <button
                     className={cn(
                       "w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-muted/50 transition-colors",
-                      isCurrentSeason && "bg-[var(--primary-50)] dark:bg-[var(--primary-950)]"
+                      isCurrentSeason && "bg-[var(--primary-50)] dark:bg-[var(--primary-800)]"
                     )}
                     onClick={() => setExpandedSeason(isSeasonExpanded ? null : season.seasonNumber)}
                   >
                     <div className="flex items-center gap-2">
                       <span className={cn(
                         "font-medium",
-                        isSeasonWatched && "text-[var(--success-600)] dark:text-[var(--success-400)]"
+                        isSeasonWatched && "text-[var(--success-700)] dark:text-[var(--success-300)]"
                       )}>
                         Season {season.seasonNumber}
                       </span>
                       {isCurrentSeason && !isSeasonWatched && (
-                        <Badge className="text-[10px] px-1.5 py-0 bg-[var(--primary-100)] dark:bg-[var(--primary-900)] text-[var(--primary-700)] dark:text-[var(--primary-300)] border-0">
+                        <Badge className="text-[10px] px-1.5 py-0 bg-[var(--primary-100)] dark:bg-[var(--primary-800)] text-[var(--primary-700)] dark:text-[var(--primary-200)] border-0">
                           Watching
                         </Badge>
                       )}
                       {isSeasonWatched && (
-                        <Check className="h-3.5 w-3.5 text-[var(--success-500)]" />
+                        <Check className="h-3.5 w-3.5 text-[var(--success-600)] dark:text-[var(--success-300)]" />
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -465,7 +478,7 @@ export function MediaCardMinimal({
                   </button>
 
                   {isSeasonExpanded && (
-                    <div className="px-3 pb-3 pt-1 border-t border-border/30">
+                    <div className="px-3 pb-3 pt-1 border-t border-border">
                       <EpisodeList
                         seasonNumber={season.seasonNumber}
                         episodeCount={season.episodeCount}
@@ -488,13 +501,13 @@ export function MediaCardMinimal({
             {isMovie && canEdit && isWatched && (
               <div className="pt-1">
                 {showLogRewatchForm ? (
-                  <div className="rounded-lg border border-border/40 p-3 space-y-2 bg-muted/20">
+                  <div className="rounded-md border border-border p-3 space-y-2 bg-muted/30">
                     <p className="text-xs font-medium text-muted-foreground">Log a rewatch</p>
                     <input
                       type="date"
                       value={logWatchDate}
                       onChange={(e) => setLogWatchDate(e.target.value)}
-                      className="w-full text-xs rounded-md border border-border/50 bg-background px-2 py-1.5 outline-none focus:ring-1 focus:ring-ring"
+                      className="w-full text-xs rounded-md border border-border bg-background px-2 py-1.5 outline-none focus:ring-1 focus:ring-ring"
                     />
                     <div className="flex justify-end gap-2">
                       <Button
@@ -538,7 +551,7 @@ export function MediaCardMinimal({
 
             {/* Footer: undo episode (TV watching), edit details, delete */}
             {canEdit && (
-              <div className="flex items-center justify-between pt-2 border-t border-border/30 mt-1">
+              <div className="flex items-center justify-between pt-2 border-t border-border mt-1">
                 <div className="flex items-center gap-1">
                   {isWatching && isTV && (
                     <Button

@@ -157,7 +157,7 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
               <CardTitle className={`${config.titleSize} font-semibold leading-tight line-clamp-2`}>
                 {media.title}
               </CardTitle>
-              <div className={`${config.textSize} text-muted-foreground/70 mt-0.5`}>
+              <div className={`${config.textSize} text-muted-foreground mt-0.5`}>
                 {buildMetaInfo()}
               </div>
             </div>
@@ -281,7 +281,7 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
 
           {/* BROWSE MODE: Compact indicators for tags / notes / dates */}
           {!isEditMode && (hasNotes || hasTags || hasDates) && (
-            <div className="flex items-center gap-2.5 text-muted-foreground/50">
+            <div className="flex items-center gap-2.5 text-muted-foreground">
               {hasTags && (
                 <span
                   className="flex items-center gap-1 text-xs"
@@ -361,7 +361,7 @@ export function MediaCardSmall(props: MediaCardSmallProps) {
 
       {/* FOOTER: Added date */}
       <div className="px-3 pb-2 text-right">
-        <span className="text-[10px] text-muted-foreground/50">
+        <span className="text-[10px] text-muted-foreground">
           Added {formatAddedDate(_creationTime)}
         </span>
       </div>
