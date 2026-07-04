@@ -28,6 +28,7 @@ export default defineSchema({
       )
     ),
     updatedAt: v.number(), // Timestamp - updated on list modifications
+    lastMediaRefreshAt: v.optional(v.number()), // Last TMDB metadata refresh for this list
   })
     .index("by_owner_id", ["ownerId"]) // Critical: Find lists owned by a user
     .index("by_updated_at", ["updatedAt"]), // Optional: Sort lists by recent activity
@@ -168,6 +169,37 @@ export default defineSchema({
     droppedAtEpisode: v.optional(v.number()),
     // Manual sort order within sections
     sortOrder: v.optional(v.number()),
+    // TMDB change tracking — snapshot for diffing on refresh
+    mediaSnapshot: v.optional(
+      v.object({
+        capturedAt: v.number(),
+        releaseDate: v.optional(v.string()),
+        seasonCount: v.number(),
+        seasons: v.array(
+          v.object({
+            seasonNumber: v.number(),
+            airDate: v.optional(v.string()),
+            episodeCount: v.number(),
+          })
+        ),
+      })
+    ),
+    pendingChanges: v.optional(
+      v.array(
+        v.object({
+          type: v.union(
+            v.literal("new_season"),
+            v.literal("season_released"),
+            v.literal("premiere_date_set"),
+            v.literal("release_date_changed"),
+            v.literal("movie_released"),
+            v.literal("episodes_added")
+          ),
+          detectedAt: v.number(),
+          detail: v.optional(v.string()),
+        })
+      )
+    ),
   })
     .index("by_list_id", ["listId"])
     .index("by_list_and_media", ["listId", "mediaId"])
@@ -178,6 +210,13 @@ export default defineSchema({
     userId: v.string(),
     listId: v.id("lists"),
     lastRefreshAt: v.number(),
+  }).index("by_user_and_list", ["userId", "listId"]),
+
+  // Per-user acknowledgment of list update banners
+  listUpdateAcknowledgments: defineTable({
+    userId: v.string(),
+    listId: v.id("lists"),
+    lastAcknowledgedAt: v.number(),
   }).index("by_user_and_list", ["userId", "listId"]),
 
   // TMDB search cache - stores search results to reduce API calls

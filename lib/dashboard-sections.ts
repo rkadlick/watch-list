@@ -28,6 +28,7 @@ export interface DashboardListItem {
     title: string;
     releaseDate?: string;
     seasonData?: SeasonData[];
+    totalSeasons?: number;
   } | null;
 }
 
@@ -37,17 +38,27 @@ export interface AwaitingReleaseEntry<T> {
   sortDate: string;
 }
 
+export interface ComingSoonEntry<T> {
+  item: T;
+  sortDate: string;
+}
+
 export interface DashboardSections<T> {
   watchingNow: T[];
   awaitingRelease: AwaitingReleaseEntry<T>[];
-  haventStarted: T[];
+  haventStartedReady: T[];
+  haventStartedComingSoon: ComingSoonEntry<T>[];
   finished: T[];
 }
 
-function getSeasonsWithAirDate(seasonData: SeasonData[] | undefined): SeasonData[] {
+function getAllSeasons(seasonData: SeasonData[] | undefined): SeasonData[] {
   return (seasonData ?? [])
-    .filter((s) => s.airDate)
+    .filter((s) => s.seasonNumber > 0)
     .sort((a, b) => a.seasonNumber - b.seasonNumber);
+}
+
+function getSeasonsWithAirDate(seasonData: SeasonData[] | undefined): SeasonData[] {
+  return getAllSeasons(seasonData).filter((s) => s.airDate);
 }
 
 function getUpcomingSeasons(seasonData: SeasonData[] | undefined, today: string): SeasonData[] {
@@ -56,6 +67,21 @@ function getUpcomingSeasons(seasonData: SeasonData[] | undefined, today: string)
 
 function getReleasedSeasons(seasonData: SeasonData[] | undefined, today: string): SeasonData[] {
   return getSeasonsWithAirDate(seasonData).filter((s) => s.airDate! <= today);
+}
+
+function getHighestWatchedSeasonNumber(seasonProgress: SeasonProgress[] | undefined): number {
+  const watched = (seasonProgress ?? []).filter((p) => p.status === "watched");
+  if (watched.length === 0) return 0;
+  return Math.max(...watched.map((p) => p.seasonNumber));
+}
+
+function getPendingNextSeasons(
+  item: DashboardListItem,
+  seasonData: SeasonData[] | undefined
+): SeasonData[] {
+  const allSeasons = getAllSeasons(seasonData);
+  const highestWatched = getHighestWatchedSeasonNumber(item.seasonProgress);
+  return allSeasons.filter((s) => s.seasonNumber > highestWatched);
 }
 
 function allReleasedSeasonsWatched(
@@ -88,22 +114,31 @@ function isAtSeasonStartWithoutProgress(item: DashboardListItem): boolean {
   return !seasonProgress?.episodeDates?.length;
 }
 
+function sortDateForSeason(season: SeasonData): string {
+  return season.airDate ?? "9999-12-31";
+}
+
 function classifyAwaitingRelease(
   item: DashboardListItem,
   today: string
 ): { awaiting: boolean; newlyReleased: boolean; sortDate?: string } {
   const seasonData = item.media?.seasonData;
-  const upcoming = getUpcomingSeasons(seasonData, today);
-  const allReleasedWatched = allReleasedSeasonsWatched(item, today);
 
-  // Fully caught up on aired seasons; next season not out yet
-  if (item.status === "watched" && upcoming.length > 0) {
-    return {
-      awaiting: true,
-      newlyReleased: false,
-      sortDate: upcoming[0].airDate!,
-    };
+  // Finished show with a next season pending (undated, upcoming, or newly released)
+  if (item.status === "watched") {
+    const pending = getPendingNextSeasons(item, seasonData);
+    if (pending.length > 0) {
+      const next = pending[0];
+      const isReleased = Boolean(next.airDate && next.airDate <= today);
+      return {
+        awaiting: true,
+        newlyReleased: isReleased && isNewlyReleasedSeason(next, today),
+        sortDate: sortDateForSeason(next),
+      };
+    }
   }
+
+  const allReleasedWatched = allReleasedSeasonsWatched(item, today);
 
   if (!allReleasedWatched) {
     return { awaiting: false, newlyReleased: false };
@@ -135,7 +170,59 @@ function classifyAwaitingRelease(
     }
   }
 
+  // Caught up on aired content but positioned at an undated next season
+  const pendingUndated = getPendingNextSeasons(item, seasonData).filter((s) => !s.airDate);
+  if (allReleasedWatched && pendingUndated.length > 0) {
+    return {
+      awaiting: true,
+      newlyReleased: false,
+      sortDate: "9999-12-31",
+    };
+  }
+
   return { awaiting: false, newlyReleased: false };
+}
+
+function classifyComingSoon(
+  item: DashboardListItem,
+  today: string
+): { comingSoon: boolean; sortDate: string } {
+  const media = item.media;
+  if (!media) return { comingSoon: false, sortDate: today };
+
+  if (media.type === "movie") {
+    if (media.releaseDate && media.releaseDate > today) {
+      return { comingSoon: true, sortDate: media.releaseDate };
+    }
+    return { comingSoon: false, sortDate: today };
+  }
+
+  // TV show in haven't-started territory
+  if (media.releaseDate && media.releaseDate > today) {
+    return { comingSoon: true, sortDate: media.releaseDate };
+  }
+
+  const released = getReleasedSeasons(media.seasonData, today);
+  if (released.length > 0) {
+    return { comingSoon: false, sortDate: today };
+  }
+
+  const allSeasons = getAllSeasons(media.seasonData);
+  if (allSeasons.length === 0) {
+    return { comingSoon: true, sortDate: "9999-12-31" };
+  }
+
+  const datedUpcoming = getUpcomingSeasons(media.seasonData, today);
+  if (datedUpcoming.length > 0) {
+    return { comingSoon: true, sortDate: datedUpcoming[0].airDate! };
+  }
+
+  const undated = allSeasons.filter((s) => !s.airDate);
+  if (undated.length > 0) {
+    return { comingSoon: true, sortDate: "9999-12-31" };
+  }
+
+  return { comingSoon: false, sortDate: today };
 }
 
 function classifyTVItem(
@@ -148,18 +235,14 @@ function classifyTVItem(
   if (item.status === "watching") return "watchingNow";
 
   if (item.status === "to_watch") {
-    const curSeason = item.currentSeasonNumber ?? 1;
-    const curEpisode = item.currentEpisodeNumber ?? 1;
-    if (curSeason === 1 && curEpisode === 1) return "haventStarted";
-    // Unusual state — treat as haven't started
     return "haventStarted";
   }
 
   if (item.status === "dropped") return "finished";
 
   if (item.status === "watched") {
-    const upcoming = getUpcomingSeasons(item.media?.seasonData, today);
-    return upcoming.length === 0 ? "finished" : "awaitingRelease";
+    const pending = getPendingNextSeasons(item, item.media?.seasonData);
+    return pending.length === 0 ? "finished" : "awaitingRelease";
   }
 
   return "finished";
@@ -179,13 +262,18 @@ function sortAwaitingRelease<T>(
   });
 }
 
+function sortComingSoon<T>(entries: ComingSoonEntry<T>[]): ComingSoonEntry<T>[] {
+  return [...entries].sort((a, b) => a.sortDate.localeCompare(b.sortDate));
+}
+
 export function classifyDashboardItems<T extends DashboardListItem>(
   items: T[],
   today: string
 ): DashboardSections<T> {
   const watchingNow: T[] = [];
   const awaitingRelease: AwaitingReleaseEntry<T>[] = [];
-  const haventStarted: T[] = [];
+  const haventStartedReady: T[] = [];
+  const haventStartedComingSoon: ComingSoonEntry<T>[] = [];
   const finished: T[] = [];
 
   for (const item of items) {
@@ -195,7 +283,15 @@ export function classifyDashboardItems<T extends DashboardListItem>(
       if (item.status === "watched" || item.status === "dropped") {
         finished.push(item);
       } else {
-        haventStarted.push(item);
+        const comingSoon = classifyComingSoon(item, today);
+        if (comingSoon.comingSoon) {
+          haventStartedComingSoon.push({
+            item,
+            sortDate: comingSoon.sortDate,
+          });
+        } else {
+          haventStartedReady.push(item);
+        }
       }
       continue;
     }
@@ -215,9 +311,18 @@ export function classifyDashboardItems<T extends DashboardListItem>(
         });
         break;
       }
-      case "haventStarted":
-        haventStarted.push(item);
+      case "haventStarted": {
+        const comingSoon = classifyComingSoon(item, today);
+        if (comingSoon.comingSoon) {
+          haventStartedComingSoon.push({
+            item,
+            sortDate: comingSoon.sortDate,
+          });
+        } else {
+          haventStartedReady.push(item);
+        }
         break;
+      }
       case "finished":
         finished.push(item);
         break;
@@ -227,7 +332,8 @@ export function classifyDashboardItems<T extends DashboardListItem>(
   return {
     watchingNow,
     awaitingRelease: sortAwaitingRelease(awaitingRelease),
-    haventStarted,
+    haventStartedReady,
+    haventStartedComingSoon: sortComingSoon(haventStartedComingSoon),
     finished,
   };
 }
@@ -241,6 +347,13 @@ export function getDefaultDashboardTab<T>(
       return "current";
     }
   }
-  if (sections.haventStarted.length > 0) return "havent_started";
+  const haventStartedCount =
+    sections.haventStartedReady.length + sections.haventStartedComingSoon.length;
+  if (haventStartedCount > 0) return "havent_started";
   return "finished";
+}
+
+/** @deprecated Use haventStartedReady + haventStartedComingSoon */
+export function getHaventStartedCount<T>(sections: DashboardSections<T>): number {
+  return sections.haventStartedReady.length + sections.haventStartedComingSoon.length;
 }

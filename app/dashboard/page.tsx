@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery, useMutation, useConvex, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -65,8 +65,14 @@ import { convertToCSV, downloadFile, generateFilename } from "@/lib/export";
 import {
   classifyDashboardItems,
   getDefaultDashboardTab,
+  getHaventStartedCount,
   type DashboardTab,
 } from "@/lib/dashboard-sections";
+import {
+  UpdatesBanner,
+  collectUnacknowledgedUpdates,
+  formatLastUpdated,
+} from "@/components/dashboard/UpdatesBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { cn } from "@/lib/utils";
 
@@ -169,8 +175,11 @@ export default function DashboardPage() {
   const [tabInitializedForList, setTabInitializedForList] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(() => Date.now());
   const [isRefreshingMedia, setIsRefreshingMedia] = useState(false);
+  const autoRefreshedListsRef = useRef<Set<string>>(new Set());
 
   const refreshListMedia = useAction(api.media.refreshListMedia);
+  const autoRefreshListMedia = useAction(api.media.autoRefreshListMedia);
+  const acknowledgeListUpdates = useMutation(api.listItems.acknowledgeListUpdates);
   const refreshCooldown = useQuery(
     api.media.getRefreshCooldown,
     selectedListId ? { listId: selectedListId } : "skip"
@@ -232,6 +241,40 @@ export default function DashboardPage() {
   }, [refreshCooldown, refreshTick]);
 
   const canRefreshMedia = refreshCooldownRemainingMs === 0 && !isRefreshingMedia;
+
+  const lastUpdatedLabel = useMemo(() => {
+    if (!refreshCooldown?.lastMediaRefreshAt) return null;
+    return formatLastUpdated(refreshCooldown.lastMediaRefreshAt);
+  }, [refreshCooldown?.lastMediaRefreshAt, refreshTick]);
+
+  // Tick every minute so "Xm ago" stays fresh
+  useEffect(() => {
+    if (!refreshCooldown?.lastMediaRefreshAt) return;
+    const interval = setInterval(() => setRefreshTick(Date.now()), 60_000);
+    return () => clearInterval(interval);
+  }, [refreshCooldown?.lastMediaRefreshAt]);
+
+  // Auto-refresh stale list metadata once per list visit (24h cooldown)
+  useEffect(() => {
+    if (!selectedListId || !refreshCooldown) return;
+
+    const key = selectedListId.toString();
+    if (autoRefreshedListsRef.current.has(key)) return;
+
+    const { lastMediaRefreshAt, autoRefreshCooldownMs } = refreshCooldown;
+    const stale =
+      !lastMediaRefreshAt ||
+      Date.now() - lastMediaRefreshAt >= autoRefreshCooldownMs;
+
+    if (!stale) return;
+
+    autoRefreshedListsRef.current.add(key);
+    autoRefreshListMedia({ listId: selectedListId }).catch((error) => {
+      if (process.env.NODE_ENV === "development") {
+        console.error("Auto refresh failed:", error);
+      }
+    });
+  }, [selectedListId, refreshCooldown, autoRefreshListMedia]);
 
   // Helper function to get list role
   function getListRole(
@@ -320,6 +363,19 @@ export default function DashboardPage() {
     api.listItems.getListItems,
     selectedListId ? { listId: selectedListId } : "skip"
   );
+
+  const unacknowledgedUpdates = useMemo(() => {
+    if (!listItems || !refreshCooldown) return [];
+    return collectUnacknowledgedUpdates(
+      listItems,
+      refreshCooldown.lastAcknowledgedAt
+    );
+  }, [listItems, refreshCooldown?.lastAcknowledgedAt]);
+
+  const handleDismissUpdates = useCallback(async () => {
+    if (!selectedListId) return;
+    await acknowledgeListUpdates({ listId: selectedListId });
+  }, [selectedListId, acknowledgeListUpdates]);
 
 
   const selectedList = lists?.find((list) => list._id === selectedListId);
@@ -487,7 +543,7 @@ export default function DashboardPage() {
     const totalItems =
       sections.watchingNow.length +
       sections.awaitingRelease.length +
-      sections.haventStarted.length +
+      getHaventStartedCount(sections) +
       sections.finished.length;
 
     if (totalItems === 0) {
@@ -515,10 +571,12 @@ export default function DashboardPage() {
     );
 
     const awaitingReleaseItems = sections.awaitingRelease.map((e) => e.item);
+    const comingSoonItems = sections.haventStartedComingSoon.map((e) => e.item);
+    const haventStartedCount = getHaventStartedCount(sections);
 
     const tabCounts = {
       current: currentCount,
-      havent_started: sections.haventStarted.length,
+      havent_started: haventStartedCount,
       finished: sections.finished.length,
     };
 
@@ -564,6 +622,12 @@ export default function DashboardPage() {
 
         {showCurrentTab && (
         <TabsContent value="current" className="mt-4 space-y-6">
+          {unacknowledgedUpdates.length > 0 && (
+            <UpdatesBanner
+              updates={unacknowledgedUpdates}
+              onDismiss={handleDismissUpdates}
+            />
+          )}
           {currentCount === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">
               Nothing in progress. Shows you&apos;re watching or waiting on will appear here.
@@ -604,16 +668,56 @@ export default function DashboardPage() {
         </TabsContent>
         )}
 
-        <TabsContent value="havent_started" className="mt-4">
-          {sections.haventStarted.length === 0 ? (
+        <TabsContent value="havent_started" className="mt-4 space-y-6">
+          {unacknowledgedUpdates.some(
+            (u) =>
+              u.change.type === "movie_released" ||
+              u.change.type === "release_date_changed"
+          ) && (
+            <UpdatesBanner
+              updates={unacknowledgedUpdates.filter(
+                (u) =>
+                  u.change.type === "movie_released" ||
+                  u.change.type === "release_date_changed"
+              )}
+              onDismiss={handleDismissUpdates}
+            />
+          )}
+          {haventStartedCount === 0 ? (
             <p className="text-sm text-muted-foreground py-8 text-center">
               No unwatched items on your list.
             </p>
           ) : (
-            <DashboardCardGrid
-              items={sections.haventStarted}
-              canEdit={canEdit}
-            />
+            <>
+              {sections.haventStartedReady.length > 0 && (
+                <WatchSubSection
+                  title="Ready to Watch"
+                  count={sections.haventStartedReady.length}
+                  defaultOpen={true}
+                >
+                  <div className="pt-2">
+                    <DashboardCardGrid
+                      items={sections.haventStartedReady}
+                      canEdit={canEdit}
+                    />
+                  </div>
+                </WatchSubSection>
+              )}
+              {sections.haventStartedComingSoon.length > 0 && (
+                <WatchSubSection
+                  title="Coming Soon"
+                  count={sections.haventStartedComingSoon.length}
+                  defaultOpen={true}
+                >
+                  <div className="pt-2">
+                    <DashboardCardGrid
+                      items={comingSoonItems}
+                      canEdit={canEdit}
+                    />
+                  </div>
+                </WatchSubSection>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -1026,6 +1130,11 @@ export default function DashboardPage() {
                 {/* Refresh TMDB data - available to all list members */}
                 {selectedList && (
                   <>
+                    {lastUpdatedLabel && (
+                      <span className="hidden lg:inline text-xs text-muted-foreground tabular-nums mr-1">
+                        Updated {lastUpdatedLabel}
+                      </span>
+                    )}
                     <Button
                       variant="outline"
                       onClick={handleRefreshMedia}

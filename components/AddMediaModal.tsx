@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
-import { useMutation, useAction } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
   Dialog,
@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { Card, CardContent } from "@/components/ui/Card";
 import {
   Select,
   SelectContent,
@@ -23,7 +22,9 @@ import {
 } from "@/components/ui/Select";
 import { Id } from "@/convex/_generated/dataModel";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
-import { Loader2 } from "lucide-react";
+import { getMediaBlurPlaceholder } from "@/lib/image-utils";
+import { cn } from "@/lib/utils";
+import { Film, Loader2, Tv } from "lucide-react";
 import { SearchResultSkeleton } from "./media-card/SearchResultSkeleton";
 
 interface AddMediaModalProps {
@@ -169,24 +170,21 @@ export function AddMediaModal({
     );
   };
 
-  const getMediaPoster = (item: any) => {
+  const getMediaImage = (item: any) => {
     if (item.poster_path) {
-      return `https://image.tmdb.org/t/p/w200${item.poster_path}`;
+      return `https://image.tmdb.org/t/p/w154${item.poster_path}`;
+    }
+    if (item.backdrop_path) {
+      return `https://image.tmdb.org/t/p/w300${item.backdrop_path}`;
     }
     return null;
   };
 
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return "N/A";
-    try {
-      const date = new Date(dateString);
-      const month = (date.getMonth() + 1).toString().padStart(2, "0");
-      const day = date.getDate().toString().padStart(2, "0");
-      const year = date.getFullYear();
-      return `${month}-${day}-${year}`;
-    } catch {
-      return "N/A";
-    }
+  const getMediaYear = (item: any) => {
+    const dateString = item.release_date || item.first_air_date;
+    if (!dateString) return null;
+    const year = new Date(dateString).getFullYear();
+    return Number.isNaN(year) ? null : year;
   };
 
   // Filter lists to only show creator-owned lists
@@ -198,140 +196,174 @@ export function AddMediaModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg sm:max-w-xl max-h-[90vh] overflow-hidden p-4 sm:p-6 gap-3">
+        <DialogHeader className="min-w-0">
           <DialogTitle>Add Media</DialogTitle>
           <DialogDescription>
-            Search for movies or TV shows to add to your list. Choose a list,
-            pick a title, and add without scrolling.
+            Search for a movie or TV show, select a title, and add it to your
+            list.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-4 h-[75vh]">
-          {/* Search input - fixed at top */}
-          <div className="flex flex-col gap-3">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Search for a movie or TV show..."
-                value={searchQuery}
-                onChange={(e) => handleSearchInputChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    // Clear debounce timer and search immediately on Enter
-                    if (debounceTimerRef.current) {
-                      clearTimeout(debounceTimerRef.current);
-                    }
-                    handleSearch();
+        <div className="flex flex-col gap-3 min-h-0 min-w-0 w-full max-h-[min(70vh,680px)]">
+          <div className="flex gap-2 min-w-0 w-full">
+            <Input
+              className="min-w-0 flex-1"
+              placeholder="Search for a movie or TV show..."
+              value={searchQuery}
+              onChange={(e) => handleSearchInputChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  if (debounceTimerRef.current) {
+                    clearTimeout(debounceTimerRef.current);
                   }
-                }}
-              />
-              <Button onClick={handleSearch} disabled={isSearching}>
-                {isSearching ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Searching...
-                  </>
-                ) : (
-                  "Search"
-                )}
-              </Button>
+                  handleSearch();
+                }
+              }}
+            />
+            <Button
+              onClick={handleSearch}
+              disabled={isSearching}
+              className="shrink-0"
+            >
+              {isSearching ? (
+                <>
+                  <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+                  <span className="hidden sm:inline">Searching...</span>
+                </>
+              ) : (
+                "Search"
+              )}
+            </Button>
+          </div>
+
+          <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
+            <div className="space-y-3 pb-1 w-full min-w-0">
+              {isSearching ? (
+                <>
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <h3 className="text-sm font-semibold shrink-0">Search Results</h3>
+                    <div className="text-xs text-muted-foreground truncate">
+                      Searching...
+                    </div>
+                  </div>
+                  <div className="space-y-2 w-full min-w-0">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <SearchResultSkeleton key={i} />
+                    ))}
+                  </div>
+                </>
+              ) : searchResults.length > 0 ? (
+                <>
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <h3 className="text-sm font-semibold shrink-0">Search Results</h3>
+                    <div className="text-xs text-muted-foreground truncate">
+                      Showing {Math.min(visibleCount, searchResults.length)} of{" "}
+                      {searchResults.length}
+                    </div>
+                  </div>
+                  <div className="space-y-2 w-full min-w-0">
+                    {paginatedResults
+                      .filter(
+                        (item) =>
+                          item.media_type === "movie" ||
+                          item.media_type === "tv"
+                      )
+                      .map((item) => {
+                        const seasonCount = getSeasonCount(item);
+                        const isSelected = selectedMedia?.id === item.id;
+                        const isMovie = item.media_type === "movie";
+                        const imageUrl = getMediaImage(item);
+                        const year = getMediaYear(item);
+
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className={cn(
+                              "surface-card relative w-full max-w-full min-w-0 box-border text-left transition-colors",
+                              "flex items-center gap-2.5 px-2 py-1.5",
+                              isSelected
+                                ? "ring-2 ring-inset ring-primary bg-primary/5"
+                                : "hover:bg-muted/40"
+                            )}
+                            onClick={() => setSelectedMedia(item)}
+                          >
+                            <div
+                              className="absolute top-1.5 right-1.5 text-muted-foreground pointer-events-none"
+                              aria-hidden
+                            >
+                              {isMovie ? (
+                                <Film className="h-3 w-3" />
+                              ) : (
+                                <Tv className="h-3 w-3" />
+                              )}
+                            </div>
+
+                            <div className="relative flex-shrink-0 w-11 aspect-[2/3] rounded-md bg-muted overflow-hidden">
+                              {imageUrl ? (
+                                <Image
+                                  src={imageUrl}
+                                  alt={getMediaTitle(item)}
+                                  fill
+                                  className="object-contain"
+                                  sizes="44px"
+                                  placeholder="blur"
+                                  blurDataURL={getMediaBlurPlaceholder(
+                                    isMovie ? "movie" : "tv"
+                                  )}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
+                                  {isMovie ? "🎬" : "📺"}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0 pr-4">
+                              <div className="font-semibold text-sm leading-tight truncate">
+                                {getMediaTitle(item)}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1 flex-wrap">
+                                {year && <span>{year}</span>}
+                                {!isMovie && seasonCount && (
+                                  <>
+                                    <span>·</span>
+                                    <span>
+                                      {seasonCount}{" "}
+                                      {seasonCount === 1 ? "season" : "seasons"}
+                                    </span>
+                                  </>
+                                )}
+                                <span>·</span>
+                                <span>{isMovie ? "Movie" : "TV"}</span>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                  {visibleCount < searchResults.length && (
+                    <div className="flex justify-center pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setVisibleCount((c) => c + 12)}
+                      >
+                        Load 12 more
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="rounded-lg border border-dashed border-muted text-muted-foreground px-4 py-6 text-sm text-center">
+                  Search for a title to see results.
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Scrollable results area - shows skeleton OR results OR empty state */}
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-            {isSearching ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Search Results</h3>
-                  <div className="text-xs text-muted-foreground">
-                    Searching...
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <SearchResultSkeleton key={i} />
-                  ))}
-                </div>
-              </>
-            ) : searchResults.length > 0 ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">Search Results</h3>
-                  <div className="text-xs text-muted-foreground">
-                    Showing {Math.min(visibleCount, searchResults.length)} of{" "}
-                    {searchResults.length}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {paginatedResults
-                    .filter(
-                      (item) =>
-                        item.media_type === "movie" || item.media_type === "tv"
-                    )
-                    .map((item) => {
-                      const seasonCount = getSeasonCount(item);
-                      return (
-                        <Card
-                          key={item.id}
-                          className={`cursor-pointer transition-all border-2 bg-background ${selectedMedia?.id === item.id
-                            ? "ring-[3px] ring-primary bg-primary/5 shadow-lg scale-[1.02]"
-                            : "hover:shadow-md hover:scale-[1.01]"
-                            }`}
-                          onClick={() => setSelectedMedia(item)}
-                        >
-                          <CardContent className="p-3 flex flex-col gap-2">
-                            {getMediaPoster(item) ? (
-                              <div className="relative w-full h-48 rounded">
-                                <Image
-                                  src={getMediaPoster(item)!}
-                                  alt={getMediaTitle(item)}
-                                  fill
-                                  className="object-cover rounded"
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-full h-48 bg-muted rounded flex items-center justify-center text-muted-foreground text-xs">
-                                No Image
-                              </div>
-                            )}
-                            <div className="space-y-1">
-                              <div className="text-sm font-semibold leading-tight">
-                                {getMediaTitle(item)}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {formatDate(
-                                  item.release_date || item.first_air_date
-                                )}
-                              </div>
-                              <div className="text-xs text-muted-foreground capitalize">
-                                {item.media_type}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                </div>
-                {visibleCount < searchResults.length && (
-                  <div className="flex justify-center">
-                    <Button
-                      variant="outline"
-                      onClick={() => setVisibleCount((c) => c + 12)}
-                    >
-                      Load 12 more
-                    </Button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="rounded-lg border border-dashed border-muted text-muted-foreground px-4 py-6 text-sm">
-                Search for a title to see results.
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-4 border-t pt-6 pb-4 px-4 sticky bottom-0" >
-            <div className="flex-1">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end border-t pt-4 shrink-0 min-w-0 w-full">
+            <div className="flex-1 min-w-0 w-full">
               <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
                 Add to list
               </div>
@@ -344,7 +376,7 @@ export function AddMediaModal({
                     onListSelect?.(next);
                   }}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Choose a list" />
                   </SelectTrigger>
                   <SelectContent>
@@ -362,7 +394,7 @@ export function AddMediaModal({
               )}
             </div>
             <Button
-              className="whitespace-nowrap self-end"
+              className="w-full sm:w-auto shrink-0"
               onClick={() => {
                 if (selectedMedia && targetListId) {
                   handleAddToList(targetListId);

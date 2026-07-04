@@ -9,9 +9,11 @@ import {
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { buildMediaSnapshot } from "../lib/media-snapshot";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 export const REFRESH_COOLDOWN_MS = 60_000;
+export const AUTO_REFRESH_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 type MediaType = "movie" | "tv";
 
@@ -222,6 +224,8 @@ export const updateMediaFromTmdb = internalMutation({
     const existing = await ctx.db.get(args.mediaId);
     if (!existing) return;
 
+    const previousSnapshot = buildMediaSnapshot(existing);
+
     const fields = extractMediaFields({
       type: args.type,
       tmdbData: args.tmdbData,
@@ -231,6 +235,11 @@ export const updateMediaFromTmdb = internalMutation({
     await ctx.db.patch(args.mediaId, {
       ...fields,
       seasonData: mergeSeasonData(fields.seasonData, existing.seasonData),
+    });
+
+    await ctx.runMutation(internal.listItemReconcile.reconcileListItemsAfterMediaUpdate, {
+      mediaId: args.mediaId,
+      previousSnapshot,
     });
   },
 });
@@ -331,17 +340,35 @@ export const getRefreshCooldown = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      return { lastRefreshAt: null, cooldownMs: REFRESH_COOLDOWN_MS };
+      return {
+        lastRefreshAt: null,
+        cooldownMs: REFRESH_COOLDOWN_MS,
+        lastMediaRefreshAt: null,
+        autoRefreshCooldownMs: AUTO_REFRESH_COOLDOWN_MS,
+        lastAcknowledgedAt: null,
+      };
     }
 
     const list = await ctx.db.get(args.listId);
     if (!list) {
-      return { lastRefreshAt: null, cooldownMs: REFRESH_COOLDOWN_MS };
+      return {
+        lastRefreshAt: null,
+        cooldownMs: REFRESH_COOLDOWN_MS,
+        lastMediaRefreshAt: null,
+        autoRefreshCooldownMs: AUTO_REFRESH_COOLDOWN_MS,
+        lastAcknowledgedAt: null,
+      };
     }
 
     const role = getUserRole(list, identity.subject);
     if (!canViewList(role)) {
-      return { lastRefreshAt: null, cooldownMs: REFRESH_COOLDOWN_MS };
+      return {
+        lastRefreshAt: null,
+        cooldownMs: REFRESH_COOLDOWN_MS,
+        lastMediaRefreshAt: null,
+        autoRefreshCooldownMs: AUTO_REFRESH_COOLDOWN_MS,
+        lastAcknowledgedAt: null,
+      };
     }
 
     const existing = await ctx.db
@@ -351,9 +378,19 @@ export const getRefreshCooldown = query({
       )
       .first();
 
+    const ack = await ctx.db
+      .query("listUpdateAcknowledgments")
+      .withIndex("by_user_and_list", (q) =>
+        q.eq("userId", identity.subject).eq("listId", args.listId)
+      )
+      .first();
+
     return {
       lastRefreshAt: existing?.lastRefreshAt ?? null,
       cooldownMs: REFRESH_COOLDOWN_MS,
+      lastMediaRefreshAt: list.lastMediaRefreshAt ?? null,
+      autoRefreshCooldownMs: AUTO_REFRESH_COOLDOWN_MS,
+      lastAcknowledgedAt: ack?.lastAcknowledgedAt ?? null,
     };
   },
 });
@@ -416,13 +453,71 @@ export const refreshListMedia = action({
       listId: args.listId,
     });
 
+    return await ctx.runMutation(internal.media.scheduleListMediaRefresh, {
+      listId: args.listId,
+      clerkId: identity.subject,
+    });
+  },
+});
+
+export const autoRefreshListMedia = action({
+  args: {
+    listId: v.id("lists"),
+  },
+  handler: async (ctx, args): Promise<{ scheduled: number; skipped: boolean }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const list = await ctx.runQuery(internal.media.getListForRefreshCheck, {
+      listId: args.listId,
+      clerkId: identity.subject,
+    });
+
+    if (!list) {
+      return { scheduled: 0, skipped: true };
+    }
+
+    const now = Date.now();
+    if (
+      list.lastMediaRefreshAt &&
+      now - list.lastMediaRefreshAt < AUTO_REFRESH_COOLDOWN_MS
+    ) {
+      return { scheduled: 0, skipped: true };
+    }
+
+    const result = await ctx.runMutation(internal.media.scheduleListMediaRefresh, {
+      listId: args.listId,
+      clerkId: identity.subject,
+    });
+
+    return { ...result, skipped: false };
+  },
+});
+
+export const scheduleListMediaRefresh = internalMutation({
+  args: {
+    listId: v.id("lists"),
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args): Promise<{ scheduled: number }> => {
+    const list = await ctx.db.get(args.listId);
+    if (!list) {
+      throw new Error("List not found");
+    }
+
+    await ctx.db.patch(args.listId, {
+      lastMediaRefreshAt: Date.now(),
+    });
+
     const mediaRecords: Array<{
       _id: Id<"media">;
       tmdbId: number;
       type: MediaType;
     }> = await ctx.runQuery(internal.media.getListMediaForRefresh, {
       listId: args.listId,
-      clerkId: identity.subject,
+      clerkId: args.clerkId,
     });
 
     for (let i = 0; i < mediaRecords.length; i++) {
@@ -439,6 +534,24 @@ export const refreshListMedia = action({
     }
 
     return { scheduled: mediaRecords.length };
+  },
+});
+
+export const getListForRefreshCheck = internalQuery({
+  args: {
+    listId: v.id("lists"),
+    clerkId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const list = await ctx.db.get(args.listId);
+    if (!list) return null;
+
+    const role = getUserRole(list, args.clerkId);
+    if (!canViewList(role)) return null;
+
+    return {
+      lastMediaRefreshAt: list.lastMediaRefreshAt ?? null,
+    };
   },
 });
 

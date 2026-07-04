@@ -154,8 +154,28 @@ export function MediaCardMinimal({
   const year = media.releaseDate ? new Date(media.releaseDate).getFullYear() : null;
 
   const today = new Date().toISOString().slice(0, 10);
-  const hasUpcomingSeason = visibleSeasons.some((s) => s.airDate && s.airDate > today);
-  const showNewSeasonBadge = displayStatus === "watched" && hasUpcomingSeason;
+  const allSeasons = (media.seasonData ?? [])
+    .filter((s) => s.seasonNumber > 0)
+    .sort((a, b) => a.seasonNumber - b.seasonNumber);
+  const highestWatched = Math.max(
+    0,
+    ...(listItem.seasonProgress ?? [])
+      .filter((p) => p.status === "watched")
+      .map((p) => p.seasonNumber)
+  );
+  const pendingNextSeasons = allSeasons.filter((s) => s.seasonNumber > highestWatched);
+  const showNewSeasonBadge =
+    isTV &&
+    status === "watched" &&
+    pendingNextSeasons.some(
+      (s) => !s.airDate || (s.airDate && s.airDate > today)
+    );
+  const showComingSoonBadge =
+    (isMovie && media.releaseDate && media.releaseDate > today) ||
+    (isTV &&
+      status === "to_watch" &&
+      visibleSeasons.length === 0 &&
+      allSeasons.length > 0);
 
   // Current episode air date — used to lock the watch button until release
   const currentSeasonData = visibleSeasons.find((s) => s.seasonNumber === curSeason);
@@ -307,6 +327,12 @@ export function MediaCardMinimal({
               {showNewSeasonBadge && (
                 <Badge className="mt-1.5 text-[10px] px-1.5 py-0 bg-[var(--primary-100)] dark:bg-[var(--primary-800)] text-[var(--primary-700)] dark:text-[var(--primary-200)] border-0">
                   New season coming
+                </Badge>
+              )}
+
+              {showComingSoonBadge && (
+                <Badge className="mt-1.5 text-[10px] px-1.5 py-0 bg-[var(--warning-100)] dark:bg-[var(--warning-800)] text-[var(--warning-700)] dark:text-[var(--warning-200)] border-0">
+                  Coming soon
                 </Badge>
               )}
 

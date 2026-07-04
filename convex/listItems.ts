@@ -9,6 +9,7 @@ import {
   validateDates, 
   LIMITS 
 } from "./validation";
+import { buildMediaSnapshot } from "../lib/media-snapshot";
 
 // Helper function to get user's role in a list
 function getUserRole(
@@ -134,6 +135,7 @@ export const addListItem = mutation({
       listId: args.listId,
       mediaId: args.mediaId,
       status: args.status || "to_watch",
+      mediaSnapshot: buildMediaSnapshot(media),
     });
 
     // Update list's updatedAt timestamp
@@ -1632,5 +1634,47 @@ export const startRewatch = mutation({
     });
 
     await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+export const acknowledgeListUpdates = mutation({
+  args: {
+    listId: v.id("lists"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const list = await ctx.db.get(args.listId);
+    if (!list) {
+      throw new Error("List not found");
+    }
+
+    const role = getUserRole(list, identity.subject);
+    if (!canView(role)) {
+      throw new Error("Not authorized");
+    }
+
+    const userId = identity.subject;
+    const now = Date.now();
+
+    const existing = await ctx.db
+      .query("listUpdateAcknowledgments")
+      .withIndex("by_user_and_list", (q) =>
+        q.eq("userId", userId).eq("listId", args.listId)
+      )
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { lastAcknowledgedAt: now });
+    } else {
+      await ctx.db.insert("listUpdateAcknowledgments", {
+        userId,
+        listId: args.listId,
+        lastAcknowledgedAt: now,
+      });
+    }
   },
 });
