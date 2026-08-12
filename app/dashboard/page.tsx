@@ -46,7 +46,6 @@ import {
   RefreshCw,
   Film,
   Tv,
-  LayoutGrid,
 } from "lucide-react";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
 import {
@@ -76,15 +75,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { cn } from "@/lib/utils";
 
-type TypeFilter = "all" | "movie" | "tv";
+type TypeFilter = "movie" | "tv";
 type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
 
 const TYPE_FILTER_OPTIONS: {
   value: TypeFilter;
   label: string;
-  icon: typeof LayoutGrid;
+  icon: typeof Film;
 }[] = [
-  { value: "all", label: "All", icon: LayoutGrid },
   { value: "movie", label: "Movies", icon: Film },
   { value: "tv", label: "TV", icon: Tv },
 ];
@@ -165,7 +163,7 @@ export default function DashboardPage() {
   const [newListName, setNewListName] = useState("");
   const [newListDescription, setNewListDescription] = useState("");
   const [sortByPerList, setSortByPerList] = useState<Record<string, SortOption>>({});
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("movie");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -389,9 +387,7 @@ export default function DashboardPage() {
     if (!listItems) return undefined;
     let items = [...listItems];
 
-    if (typeFilter !== "all") {
-      items = items.filter((item) => item.media?.type === typeFilter);
-    }
+    items = items.filter((item) => item.media?.type === typeFilter);
 
     const priorityOrder = { high: 3, medium: 2, low: 1 };
     const sorters: Record<SortOption, (a: any, b: any) => number> = {
@@ -552,9 +548,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Nothing here yet</CardTitle>
             <CardDescription>
-              {typeFilter !== "all"
-                ? `No ${typeFilter === "movie" ? "movies" : "TV shows"} in this list yet.`
-                : "Add movies and shows to start tracking."}
+              {`No ${typeFilter === "movie" ? "movies" : "TV shows"} in this list yet.`}
             </CardDescription>
           </CardHeader>
         </Card>
