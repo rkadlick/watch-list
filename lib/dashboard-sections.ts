@@ -340,7 +340,7 @@ export function classifyDashboardItems<T extends DashboardListItem>(
 
 export function getDefaultDashboardTab<T>(
   sections: DashboardSections<T>,
-  typeFilter: "all" | "movie" | "tv" = "all"
+  typeFilter: "movie" | "tv"
 ): DashboardTab {
   if (typeFilter !== "movie") {
     if (sections.watchingNow.length + sections.awaitingRelease.length > 0) {
