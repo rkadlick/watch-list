@@ -1,6 +1,6 @@
 # 🎬 Watch List
 
-A modern, full-stack web application for tracking movies and TV shows. Create multiple lists, track your viewing progress, rate content, and collaborate with friends.
+A full-stack web application for tracking movies and TV shows across personal and shared lists. Built with Next.js, Convex, and Clerk, the app supports authenticated collaboration, role-based permissions, structured media tracking, and real-time updates across lists and viewing progress. It also serves as a portfolio project demonstrating full-stack architecture, validation, access control, and collaborative data modeling.
 
 ![Light Theme](docs/images/light-theme.png)
 *Light theme interface*
@@ -12,7 +12,7 @@ A modern, full-stack web application for tracking movies and TV shows. Create mu
 
 ### 📋 List Management
 - **Multiple Lists**: Create and organize multiple watch lists
-- **Collaboration**: Share lists with friends and manage member permissions (Creator, Admin, Viewer)
+- **Role-Based Collaboration**: Share lists with friends and manage member permissions (Creator, Admin, Viewer)
 - **Custom Descriptions**: Add descriptions and customize list settings
 - **Export**: Export your lists to CSV format
 
@@ -60,6 +60,20 @@ A modern, full-stack web application for tracking movies and TV shows. Create mu
 - **Vercel** - Hosting and deployment
 - **Sentry** - Error tracking and monitoring
 - **ESLint** - Code quality
+
+## Architecture Overview
+
+This project uses a Next.js App Router frontend with Convex as the backend layer for database access, business logic, and real-time updates. Clerk handles authentication, while TMDB provides external media data that is cached and normalized for app use.
+
+Core architecture decisions:
+- **Frontend:** Next.js renders the dashboard, list views, media cards, and management flows
+- **Backend:** Convex queries and mutations handle list management, permissions, media state, and collaborative updates
+- **Authentication:** Clerk manages sign-in, sessions, and protected routes
+- **Authorization:** list-level role checks control who can view, edit, manage members, or administer shared lists
+- **Data model:** media metadata is stored separately from list-specific tracking state, allowing reuse across multiple lists
+- **External APIs:** TMDB powers search and media metadata, with caching to reduce unnecessary requests
+
+This architecture keeps the app responsive and collaborative while centralizing business logic in the backend.
 
 ## 🚀 Getting Started
 
@@ -162,13 +176,24 @@ watch-list/
 └── public/                # Static assets
 ```
 
-## 🔒 Security
+## 🔒 Security and Validation
 
-- All sensitive credentials are stored in environment variables
 - Authentication handled by Clerk
-- Protected API routes with middleware
-- User data isolation enforced at the database level
-- Environment variable validation on startup
+- Protected routes enforced with middleware
+- Role-based access control for shared list actions
+- Shared validation layer for ratings, dates, tags, and sanitized text input
+- Sensitive credentials stored in environment variables
+- Error monitoring and runtime visibility via Sentry
+ 
+## Tradeoffs and Future Improvements
+
+This project was built to balance product usability with a relatively lean architecture. Convex keeps the backend simple and real-time, but it also means permission and business-rule checks need to be consistently enforced across mutations rather than through a separate API/service layer.
+
+Areas I would improve next:
+- add automated tests for key backend mutations and critical UI flows
+- introduce stronger structured error types and recovery patterns
+- add collaborative activity history for shared list changes
+- expand analytics around watch trends and list usage
 
 ## 📝 License
 
