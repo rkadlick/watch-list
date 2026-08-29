@@ -21,7 +21,7 @@ import {
 } from "./types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Tv, MapPin, History, Trash2, ChevronRight, Check, XCircle } from "lucide-react";
+import { Tv, MapPin, History, Trash2, ChevronRight, Check, XCircle, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -171,35 +171,21 @@ function TvWatchDatesSection({
 
 function WatchHistorySection({
   watchHistory,
-  currentWatchDate,
   canEdit,
   onRemoveEntry,
   isRemovingWatchEntry,
 }: {
   watchHistory?: WatchHistoryEntry[];
-  currentWatchDate?: number;
   canEdit: boolean;
   onRemoveEntry: (index: number) => Promise<void>;
   isRemovingWatchEntry: boolean;
 }) {
-  const entries = watchHistory ?? [];
-  const watchDates: Array<{ label: string; date: number; historyIndex?: number }> = [];
+  const entries = (watchHistory ?? [])
+    .map((entry, historyIndex) => ({ entry, historyIndex }))
+    .filter(({ entry }) => entry.finishedAt)
+    .reverse(); // most recent watch first
 
-  if (currentWatchDate) {
-    watchDates.push({ label: "Watched", date: currentWatchDate });
-  }
-
-  entries.forEach((entry, i) => {
-    if (entry.finishedAt) {
-      watchDates.push({
-        label: `Rewatch ${i + 1}`,
-        date: entry.finishedAt,
-        historyIndex: i,
-      });
-    }
-  });
-
-  if (watchDates.length === 0) return null;
+  if (entries.length === 0) return null;
 
   return (
     <div className="space-y-2">
@@ -207,23 +193,31 @@ function WatchHistorySection({
         <History className="h-3.5 w-3.5" />
         Watch History
         <Badge className="h-4 px-1.5 text-[10px] bg-muted text-muted-foreground ml-1">
-          {watchDates.length}×
+          {entries.length}×
         </Badge>
       </div>
 
       <div className="space-y-1.5">
-        {watchDates.map((item) => (
+        {entries.map(({ entry, historyIndex }) => (
           <div
-            key={item.historyIndex ?? "current"}
+            key={historyIndex}
             className="flex items-center justify-between gap-2 text-xs bg-muted/40 rounded-md px-2.5 py-2"
           >
             <div className="min-w-0">
-              <div className="font-medium text-foreground">{item.label}</div>
-              <div className="text-muted-foreground tabular-nums">
-                {formatDateStr(item.date)}
+              <div className="flex items-center gap-1.5 font-medium text-foreground tabular-nums">
+                {formatDateStr(entry.finishedAt!)}
+                {entry.rating !== undefined && (
+                  <span className="flex items-center gap-0.5 font-normal text-[var(--rating-500)]">
+                    <Star className="h-3 w-3 fill-[var(--rating-400)]" />
+                    {entry.rating}
+                  </span>
+                )}
               </div>
+              {entry.notes && (
+                <div className="text-muted-foreground mt-0.5 line-clamp-2">{entry.notes}</div>
+              )}
             </div>
-            {canEdit && item.historyIndex !== undefined && (
+            {canEdit && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <button
@@ -237,12 +231,12 @@ function WatchHistorySection({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Remove this watch entry?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently remove {item.label.toLowerCase()} from your history.
+                      This will permanently remove this watch from your history.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => onRemoveEntry(item.historyIndex!)}>
+                    <AlertDialogAction onClick={() => onRemoveEntry(historyIndex)}>
                       Remove
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -333,7 +327,8 @@ export function DetailSheet({
               </Badge>
             )}
 
-            {canEdit && (
+            {/* Movies: rating lives on each watch-history entry instead — see Watch History below */}
+            {canEdit && media.type === "tv" && (
               <UserRatingPopover
                 rating={listItem.rating}
                 onRatingChange={handleRatingChange}
@@ -400,7 +395,6 @@ export function DetailSheet({
           {media.type === "movie" && (
             <WatchHistorySection
               watchHistory={listItem.watchHistory}
-              currentWatchDate={listItem.status === "watched" ? listItem.finishedAt : undefined}
               canEdit={canEdit}
               onRemoveEntry={handleRemoveWatchEntry}
               isRemovingWatchEntry={isRemovingWatchEntry}

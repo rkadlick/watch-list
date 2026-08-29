@@ -33,6 +33,7 @@ import {
 import { getMediaBlurPlaceholder } from "@/lib/image-utils";
 import { EpisodeList } from "./EpisodeList";
 import { DetailSheet } from "./DetailSheet";
+import { UserRatingPopover } from "./UserRatingPopover";
 import { MediaCardInnerProps } from "./types";
 import { cn } from "@/lib/utils";
 import { calculateTVStatus } from "@/lib/tv-status";
@@ -115,6 +116,8 @@ export function MediaCardMinimal({
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
   const [showLogRewatchForm, setShowLogRewatchForm] = useState(false);
   const [logWatchDate, setLogWatchDate] = useState("");
+  const [logWatchRating, setLogWatchRating] = useState<number | undefined>(undefined);
+  const [logWatchNotes, setLogWatchNotes] = useState("");
 
   const { media, status } = listItem;
   if (!media) return null;
@@ -202,17 +205,27 @@ export function MediaCardMinimal({
     }
   };
 
-  const handleMovieMarkWatched = async () => {
-    await handleStatusChange("watched");
-    toast.success(`${media.title} moved to Finished`);
+  const handleOpenLogWatchForm = () => {
+    setLogWatchDate(new Date().toISOString().slice(0, 10));
+    setLogWatchRating(undefined);
+    setLogWatchNotes("");
+    setShowLogRewatchForm(true);
+    setIsExpanded(true);
   };
 
   const handleLogRewatchSubmit = async () => {
     const finishedAt = logWatchDate ? new Date(logWatchDate).getTime() : undefined;
-    await handleLogWatchEntry({ finishedAt });
+    const wasWatched = isWatched;
+    await handleLogWatchEntry({
+      finishedAt,
+      rating: logWatchRating,
+      notes: logWatchNotes.trim() || undefined,
+    });
     setLogWatchDate("");
+    setLogWatchRating(undefined);
+    setLogWatchNotes("");
     setShowLogRewatchForm(false);
-    toast.success("Rewatch logged");
+    toast.success(wasWatched ? "Watch logged" : `${media.title} moved to Finished`);
   };
 
   const showEpisodePosition = isTV && (isWatching || isToWatch);
@@ -336,10 +349,10 @@ export function MediaCardMinimal({
                 </Badge>
               )}
 
-              {/* Rewatch count badge */}
-              {listItem.watchHistory && listItem.watchHistory.length > 0 && (
+              {/* Watch count badge — only once there's more than one logged watch */}
+              {listItem.watchHistory && listItem.watchHistory.length > 1 && (
                 <Badge className="mt-1.5 text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-0">
-                  {listItem.watchHistory.length + (isWatched ? 1 : 0)}× watched
+                  {listItem.watchHistory.length}× watched
                 </Badge>
               )}
             </div>
@@ -365,17 +378,12 @@ export function MediaCardMinimal({
                     "h-11 w-11 rounded-full border-2 flex items-center justify-center transition-all duration-150",
                     "border-border text-muted-foreground bg-background",
                     "hover:border-[var(--success-600)] hover:text-[var(--success-700)] hover:bg-[var(--success-50)]",
-                    "dark:hover:border-[var(--success-400)] dark:hover:text-[var(--success-300)] dark:hover:bg-[var(--success-800)]",
-                    (isAdvancingEpisode || isUpdatingStatus) && "opacity-40 cursor-not-allowed"
+                    "dark:hover:border-[var(--success-400)] dark:hover:text-[var(--success-300)] dark:hover:bg-[var(--success-800)]"
                   )}
-                  onClick={handleMovieMarkWatched}
-                  disabled={isAdvancingEpisode || isUpdatingStatus}
+                  onClick={handleOpenLogWatchForm}
                   title="Mark as watched"
                 >
-                  <Check className={cn(
-                    "h-5 w-5",
-                    (isAdvancingEpisode || isUpdatingStatus) && "animate-pulse"
-                  )} />
+                  <Check className="h-5 w-5" />
                 </button>
               )}
 
@@ -523,17 +531,34 @@ export function MediaCardMinimal({
               );
             })}
 
-            {/* Movie: log rewatch */}
-            {isMovie && canEdit && isWatched && (
+            {/* Movie: log a watch (first watch or a rewatch) */}
+            {isMovie && canEdit && (isWatched || showLogRewatchForm) && (
               <div className="pt-1">
                 {showLogRewatchForm ? (
                   <div className="rounded-md border border-border p-3 space-y-2 bg-muted/30">
-                    <p className="text-xs font-medium text-muted-foreground">Log a rewatch</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {isWatched ? "Log another watch" : "Log this watch"}
+                    </p>
                     <input
                       type="date"
                       value={logWatchDate}
                       onChange={(e) => setLogWatchDate(e.target.value)}
                       className="w-full text-xs rounded-md border border-border bg-background px-2 py-1.5 outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-muted-foreground">Rating (optional)</span>
+                      <UserRatingPopover
+                        rating={logWatchRating}
+                        onRatingChange={setLogWatchRating}
+                        size="sm"
+                      />
+                    </div>
+                    <textarea
+                      placeholder="Notes (optional)"
+                      value={logWatchNotes}
+                      onChange={(e) => setLogWatchNotes(e.target.value)}
+                      rows={2}
+                      className="w-full text-xs rounded-md border border-border bg-background px-2 py-1.5 outline-none focus:ring-1 focus:ring-ring resize-none"
                     />
                     <div className="flex justify-end gap-2">
                       <Button
@@ -543,6 +568,8 @@ export function MediaCardMinimal({
                         onClick={() => {
                           setShowLogRewatchForm(false);
                           setLogWatchDate("");
+                          setLogWatchRating(undefined);
+                          setLogWatchNotes("");
                         }}
                       >
                         Cancel
@@ -562,14 +589,11 @@ export function MediaCardMinimal({
                     variant="ghost"
                     size="sm"
                     className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1.5"
-                    onClick={() => {
-                      setLogWatchDate(new Date().toISOString().slice(0, 10));
-                      setShowLogRewatchForm(true);
-                    }}
+                    onClick={handleOpenLogWatchForm}
                     disabled={isLoggingWatchEntry}
                   >
                     <Plus className="h-3 w-3" />
-                    Log rewatch
+                    Log another watch
                   </Button>
                 )}
               </div>
