@@ -194,15 +194,13 @@ export const updateStatus = mutation({
       throw new Error("Media not found");
     }
 
-    // For movies, update status and auto-set watch date
+    // For movies, "watched" always goes through logWatchEntry so there's
+    // a dated diary entry behind it — this mutation only handles the rest.
     if (media.type === "movie") {
-      const updates: { status: typeof args.status; finishedAt?: number } = {
-        status: args.status,
-      };
       if (args.status === "watched") {
-        updates.finishedAt = Date.now();
+        throw new Error("Use logWatchEntry to mark a movie as watched");
       }
-      await ctx.db.patch(args.listItemId, updates);
+      await ctx.db.patch(args.listItemId, { status: args.status });
     } else {
       // For TV shows, status is calculated from season statuses
       // This function should only be used to set "dropped" status
@@ -1536,10 +1534,27 @@ export const logWatchEntry = mutation({
     };
 
     const existing = listItem.watchHistory ?? [];
-    await ctx.db.patch(args.listItemId, {
+    const patch: {
+      watchHistory: typeof existing;
+      status?: "watched";
+      finishedAt?: number;
+      rating?: number;
+    } = {
       watchHistory: [...existing, entry],
-    });
+    };
 
+    // Movies: every logged watch (first included) marks the item watched and
+    // becomes the new "current" watch reflected in the top-level fields.
+    const media = await ctx.db.get(listItem.mediaId);
+    if (media?.type === "movie") {
+      patch.status = "watched";
+      patch.finishedAt = entry.finishedAt;
+      if (validatedRating !== undefined) {
+        patch.rating = validatedRating;
+      }
+    }
+
+    await ctx.db.patch(args.listItemId, patch);
     await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
   },
 });
@@ -1568,10 +1583,31 @@ export const removeWatchEntry = mutation({
     }
 
     const updated = existing.filter((_, i) => i !== args.entryIndex);
-    await ctx.db.patch(args.listItemId, {
+    const patch: {
+      watchHistory?: typeof existing;
+      status?: "to_watch" | "watched";
+      finishedAt?: number;
+      rating?: number;
+    } = {
       watchHistory: updated.length > 0 ? updated : undefined,
-    });
+    };
 
+    // Movies: re-sync the top-level "current watch" fields from what remains.
+    const media = await ctx.db.get(listItem.mediaId);
+    if (media?.type === "movie") {
+      if (updated.length === 0) {
+        patch.status = "to_watch";
+        patch.finishedAt = undefined;
+        patch.rating = undefined;
+      } else {
+        const latest = updated[updated.length - 1];
+        const lastRated = [...updated].reverse().find((e) => e.rating !== undefined);
+        patch.finishedAt = latest.finishedAt;
+        patch.rating = lastRated?.rating;
+      }
+    }
+
+    await ctx.db.patch(args.listItemId, patch);
     await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
   },
 });
