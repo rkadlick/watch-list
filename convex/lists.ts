@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { validateString, LIMITS, validateArrayLength } from "./validation";
+import { deleteEpisodeWatches } from "./episodeTracking";
 
 // Helper function to get user's role in a list
 // Returns "creator" | "admin" | "viewer" | null
@@ -394,6 +395,7 @@ export const deleteList = mutation({
       .collect();
 
     for (const item of listItems) {
+      await deleteEpisodeWatches(ctx, item._id);
       await ctx.db.delete(item._id);
     }
 

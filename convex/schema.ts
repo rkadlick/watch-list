@@ -120,11 +120,14 @@ export default defineSchema({
           notes: v.optional(v.string()), // Season-specific notes
           startedAt: v.optional(v.number()), // When season started
           finishedAt: v.optional(v.number()), // When season finished
+          // Cached count of episodes watched in the current pass (see episodeWatches)
+          watchedCount: v.optional(v.number()),
+          // Legacy (trackingVersion < 2) — episode watches now live in episodeWatches
           episodeDates: v.optional(
             v.array(
               v.object({
                 episodeNumber: v.number(),
-                watchedAt: v.number(), // Timestamp when episode was checked off via advanceEpisode
+                watchedAt: v.number(),
               })
             )
           ),
@@ -138,6 +141,8 @@ export default defineSchema({
           finishedAt: v.optional(v.number()),
           rating: v.optional(v.number()),
           notes: v.optional(v.string()),
+          // TV only — the episodeWatches pass this entry archived
+          pass: v.optional(v.number()),
           // TV only — snapshot of seasonProgress at rewatch archive time
           seasons: v.optional(
             v.array(
@@ -161,7 +166,13 @@ export default defineSchema({
         })
       )
     ),
-    // Episode position tracking (TV only)
+    // TV only — 2 once episode watches live in episodeWatches. Status,
+    // seasonProgress statuses and the current position are then cached values
+    // derived from those rows.
+    trackingVersion: v.optional(v.number()),
+    // TV only — current watch-through (1 = first watch, bumped by startRewatch)
+    watchPass: v.optional(v.number()),
+    // Episode position tracking (TV only) — next episode to watch
     currentSeasonNumber: v.optional(v.number()),
     currentEpisodeNumber: v.optional(v.number()),
     // Drop position tracking (TV only)
@@ -204,6 +215,16 @@ export default defineSchema({
     .index("by_list_id", ["listId"])
     .index("by_list_and_media", ["listId", "mediaId"])
     .index("by_media_id", ["mediaId"]), // Optional: Find all lists containing a media item
+
+  // One row per episode watch (TV). An episode is watched when it has a row
+  // for the list item's current watchPass; rows from earlier passes are history.
+  episodeWatches: defineTable({
+    listItemId: v.id("listItems"),
+    pass: v.number(),
+    seasonNumber: v.number(),
+    episodeNumber: v.number(),
+    watchedAt: v.optional(v.number()), // undefined = watched, date unknown (backfilled)
+  }).index("by_list_item", ["listItemId", "pass", "seasonNumber", "episodeNumber"]),
 
   // Per-user cooldown for manual TMDB refresh on a list
   tmdbRefreshCooldowns: defineTable({

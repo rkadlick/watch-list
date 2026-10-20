@@ -18,11 +18,14 @@ import {
   PriorityValue,
   WatchHistoryEntry,
   EpisodeData,
+  EpisodeWatch,
 } from "./types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Tv, MapPin, History, Trash2, ChevronRight, Check, XCircle, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEpisodeWatches } from "@/lib/hooks/useEpisodeWatches";
+import type { Id } from "@/convex/_generated/dataModel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +43,7 @@ interface DetailSheetProps {
   onOpenChange: (open: boolean) => void;
   canEdit: boolean;
   listItem: {
+    _id: Id<"listItems">;
     status: StatusValue;
     rating?: number;
     notes?: string;
@@ -111,33 +115,10 @@ function formatDateStr(timestamp?: number): string {
   });
 }
 
-function getAllEpisodeWatchDates(
-  seasonProgress: SeasonProgress[] | undefined,
-  visibleSeasons: Array<{ seasonNumber: number }>
-): Array<{ seasonNumber: number; episodeNumber: number; watchedAt: number }> {
-  const dates: Array<{ seasonNumber: number; episodeNumber: number; watchedAt: number }> = [];
-
-  for (const season of visibleSeasons) {
-    const prog = seasonProgress?.find((p) => p.seasonNumber === season.seasonNumber);
-    for (const entry of prog?.episodeDates ?? []) {
-      dates.push({
-        seasonNumber: season.seasonNumber,
-        episodeNumber: entry.episodeNumber,
-        watchedAt: entry.watchedAt,
-      });
-    }
-  }
-
-  return dates.sort(
-    (a, b) =>
-      a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber
-  );
-}
-
 function TvWatchDatesSection({
   episodeWatchDates,
 }: {
-  episodeWatchDates: Array<{ seasonNumber: number; episodeNumber: number; watchedAt: number }>;
+  episodeWatchDates: EpisodeWatch[];
 }) {
   if (episodeWatchDates.length === 0) return null;
 
@@ -160,7 +141,7 @@ function TvWatchDatesSection({
               S{String(entry.seasonNumber).padStart(2, "0")} E{String(entry.episodeNumber).padStart(2, "0")}
             </span>
             <span className="text-muted-foreground tabular-nums">
-              {formatDateStr(entry.watchedAt)}
+              {entry.watchedAt === undefined ? "Date unknown" : formatDateStr(entry.watchedAt)}
             </span>
           </div>
         ))}
@@ -289,15 +270,17 @@ export function DetailSheet({
   isRemovingWatchEntry,
 }: DetailSheetProps) {
   const [openSeason, setOpenSeason] = useState<string | undefined>(undefined);
+  const episodeWatches = useEpisodeWatches(listItem._id, open && media.type === "tv");
 
   const visibleSeasons = (media.seasonData ?? [])
     .filter((s) => s.airDate)
     .sort((a, b) => a.seasonNumber - b.seasonNumber);
 
   const curSeason = listItem.currentSeasonNumber ?? 1;
+  const visibleSeasonNumbers = new Set(visibleSeasons.map((s) => s.seasonNumber));
   const allEpisodeWatchDates =
     media.type === "tv"
-      ? getAllEpisodeWatchDates(listItem.seasonProgress, visibleSeasons)
+      ? episodeWatches.current.filter((w) => visibleSeasonNumbers.has(w.seasonNumber))
       : [];
 
   // Dropped location display
@@ -313,12 +296,13 @@ export function DetailSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg w-full max-h-[90vh] overflow-y-auto sm:max-h-[85vh]">
-        <DialogHeader>
+      {/* Fixed height so the sheet doesn't resize as seasons expand — body scrolls */}
+      <DialogContent className="w-full sm:max-w-xl h-[90vh] sm:h-[88vh] flex flex-col gap-0 p-0 overflow-hidden">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-4 pr-12 border-b border-border">
           <DialogTitle className="text-left">{media.title}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5 pb-2">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-5">
           {/* Rating + Priority + Drop row */}
           <div className="flex items-center gap-3 flex-wrap">
             {!canEdit && (
@@ -417,6 +401,8 @@ export function DetailSheet({
                 {visibleSeasons.map((season) => {
                   const seasonStatus = getSeasonStatus(season.seasonNumber);
                   const seasonProgress = getSeasonProgress(season.seasonNumber);
+                  const watchedCount =
+                    seasonProgress?.watchedCount ?? seasonProgress?.episodeDates?.length ?? 0;
                   const isSeasonWatched = seasonStatus === "watched";
                   const isCurrentSeason = season.seasonNumber === curSeason;
                   const seasonKey = `season-${season.seasonNumber}`;
@@ -449,9 +435,9 @@ export function DetailSheet({
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          {(seasonProgress?.episodeDates?.length ?? 0) > 0 && (
+                          {watchedCount > 0 && (
                             <span className="text-[10px] text-muted-foreground tabular-nums">
-                              {seasonProgress!.episodeDates!.length}/{season.episodeCount} watched
+                              {watchedCount}/{season.episodeCount} watched
                             </span>
                           )}
                           <span className="text-xs text-muted-foreground">{season.episodeCount} eps</span>
@@ -470,7 +456,7 @@ export function DetailSheet({
                             episodeCount={season.episodeCount}
                             airDate={season.airDate}
                             notes={seasonProgress?.notes}
-                            episodeDates={seasonProgress?.episodeDates}
+                            episodeWatches={episodeWatches.forSeason(season.seasonNumber)}
                             onNotesChange={(notes) => handleSeasonNotesChange(season.seasonNumber, notes)}
                             isUpdatingSeasonNotes={isUpdatingSeasonNotes}
                           />

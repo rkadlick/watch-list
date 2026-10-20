@@ -38,6 +38,7 @@ import { UserRatingPopover } from "./UserRatingPopover";
 import { MediaCardInnerProps } from "./types";
 import { cn } from "@/lib/utils";
 import { calculateTVStatus } from "@/lib/tv-status";
+import { useEpisodeWatches } from "@/lib/hooks/useEpisodeWatches";
 import { isEpisodeLocked, resolveEpisodeAirDate } from "@/lib/tv-episodes";
 import { getReleasedNextSeason } from "@/lib/dashboard-sections";
 import { todayLocalISO } from "@/lib/dates";
@@ -117,6 +118,10 @@ export function MediaCardMinimal({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
+  const episodeWatches = useEpisodeWatches(
+    listItem._id,
+    listItem.media?.type === "tv" && isExpanded
+  );
   const [showLogRewatchForm, setShowLogRewatchForm] = useState(false);
   const [logWatchDate, setLogWatchDate] = useState("");
   const [logWatchRating, setLogWatchRating] = useState<number | undefined>(undefined);
@@ -564,6 +569,7 @@ export function MediaCardMinimal({
                         episodes={season.episodes}
                         isCurrentSeason={isCurrentSeason}
                         isWatched={isSeasonWatched}
+                        watchedEpisodes={episodeWatches.watchedInSeason(season.seasonNumber)}
                         currentEpisodeNumber={isCurrentSeason ? curEpisode : undefined}
                         canEdit={canEdit}
                         onMarkSeasonWatched={handleMarkSeasonWatched}

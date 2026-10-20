@@ -3,6 +3,17 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 
+import {
+  applyEpisodeChanges,
+  isMigratedToEpisodeWatches,
+} from "./episodeTracking";
+import {
+  buildWatchedMap,
+  deriveTvState,
+  getTrackedSeasons,
+  legacyEpisodeWatches,
+} from "../lib/episode-tracking";
+
 /**
  * One-time production migration for the dashboard / episode-tracking overhaul.
  *
@@ -427,5 +438,107 @@ export const scheduleAllMediaRefresh = internalMutation({
     }
 
     return { scheduled: allMedia.length };
+  },
+});
+
+/**
+ * Move TV progress into the episodeWatches table (trackingVersion 2).
+ *
+ * Items are also migrated lazily on their next TV mutation, and reads convert
+ * legacy data on the fly, so this can run any time after deploy.
+ *
+ * Dry run (preview only):
+ *   npx convex run migrations:previewEpisodeWatchesMigration --prod
+ *
+ * Apply (walks every list item in batches, scheduling itself):
+ *   npx convex run migrations:migrateEpisodeWatches --prod
+ */
+export const previewEpisodeWatchesMigration = internalQuery({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const items = await ctx.db.query("listItems").collect();
+    const pending = items.filter((item) => !isMigratedToEpisodeWatches(item));
+
+    const previews: MigrationChange[] = [];
+    let tvItems = 0;
+    let rows = 0;
+
+    for (const item of pending) {
+      const media = await ctx.db.get(item.mediaId);
+      if (!media || media.type !== "tv") continue;
+      tvItems++;
+
+      const legacy = legacyEpisodeWatches(item, media.seasonData);
+      rows += legacy.rows.length;
+
+      const derived = deriveTvState({
+        seasons: getTrackedSeasons(media.seasonData),
+        seasonProgress: item.seasonProgress,
+        watched: buildWatchedMap(legacy.rows.filter((r) => r.pass === legacy.pass)),
+        fallbackStatus: item.status,
+        inProgress: item.status === "watching",
+      });
+      const status = item.status === "dropped" ? "dropped" : derived.status;
+
+      const changes: string[] = [];
+      const undated = legacy.rows.filter((r) => r.watchedAt === undefined).length;
+      changes.push(
+        `${legacy.rows.length} watch rows (pass ${legacy.pass}${undated ? `, ${undated} undated` : ""})`
+      );
+      if (status !== item.status) changes.push(`status ${item.status} → ${status}`);
+      if (
+        derived.position &&
+        (derived.position.seasonNumber !== item.currentSeasonNumber ||
+          derived.position.episodeNumber !== item.currentEpisodeNumber)
+      ) {
+        changes.push(
+          `cursor S${item.currentSeasonNumber ?? "?"}E${item.currentEpisodeNumber ?? "?"} → S${derived.position.seasonNumber}E${derived.position.episodeNumber}`
+        );
+      }
+
+      if (previews.length < (args.limit ?? 100)) {
+        previews.push({ listItemId: item._id, title: media.title, changes });
+      }
+    }
+
+    return { totalItems: items.length, tvItemsToMigrate: tvItems, rowsToWrite: rows, previews };
+  },
+});
+
+export const migrateEpisodeWatches = internalMutation({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const batchSize = args.batchSize ?? 25;
+    const page = await ctx.db
+      .query("listItems")
+      .paginate({ cursor: args.cursor ?? null, numItems: batchSize });
+
+    let migrated = 0;
+    for (const item of page.page) {
+      if (isMigratedToEpisodeWatches(item)) continue;
+      const media = await ctx.db.get(item.mediaId);
+      if (!media || media.type !== "tv") continue;
+
+      await applyEpisodeChanges(ctx, item, media, {
+        inProgress: item.status === "watching",
+        preserveDropped: true,
+        touchList: false,
+      });
+      migrated++;
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.migrations.migrateEpisodeWatches, {
+        cursor: page.continueCursor,
+        batchSize,
+      });
+    }
+
+    return { migrated, isDone: page.isDone };
   },
 });

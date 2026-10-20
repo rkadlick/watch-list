@@ -18,6 +18,8 @@ import { StatusMenu } from "./StatusMenu";
 import { SeasonEditForm } from "./SeasonEditForm";
 import { statusColors, SeasonProgress, StatusValue, EpisodeData } from "./types";
 import { cn } from "@/lib/utils";
+import { useEpisodeWatches } from "@/lib/hooks/useEpisodeWatches";
+import type { Id } from "@/convex/_generated/dataModel";
 
 interface SeasonAccordionProps {
   canEdit: boolean;
@@ -34,6 +36,7 @@ interface SeasonAccordionProps {
     }>;
   };
   listItem: {
+    _id: Id<"listItems">;
     seasonProgress?: SeasonProgress[];
   };
   config: {
@@ -125,6 +128,7 @@ function StarRatingPicker({
 
 export function SeasonAccordion({
   canEdit,
+  listItem,
   openSeason,
   setOpenSeason,
   media,
@@ -142,6 +146,9 @@ export function SeasonAccordion({
   isUpdatingSeasonDates,
   isMarkingSeasonWatched = false,
 }: SeasonAccordionProps) {
+  // Episode dates only render inside an open season
+  const episodeWatches = useEpisodeWatches(listItem._id, openSeason !== undefined);
+
   if (!media.seasonData?.length) {
     return (
       <div className={`${config.textSize} text-muted-foreground py-2`}>
@@ -269,7 +276,7 @@ export function SeasonAccordion({
                   episodeCount={season.episodeCount}
                   airDate={season.airDate}
                   notes={seasonProgress?.notes}
-                  episodeDates={seasonProgress?.episodeDates}
+                  episodeWatches={episodeWatches.forSeason(season.seasonNumber)}
                   onNotesChange={(notes) =>
                     handleSeasonNotesChange(season.seasonNumber, notes)
                   }

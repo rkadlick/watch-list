@@ -10,6 +10,13 @@ export interface EpisodeDate {
   watchedAt: number;
 }
 
+/** A row from episodeWatches; watchedAt is undefined when the date is unknown */
+export interface EpisodeWatch {
+  seasonNumber: number;
+  episodeNumber: number;
+  watchedAt?: number;
+}
+
 export interface SeasonProgress {
   seasonNumber: number;
   status: SeasonStatusValue;
@@ -17,6 +24,9 @@ export interface SeasonProgress {
   notes?: string;
   startedAt?: number;
   finishedAt?: number;
+  /** Episodes watched this pass (cached from episodeWatches) */
+  watchedCount?: number;
+  /** Legacy — superseded by episodeWatches */
   episodeDates?: EpisodeDate[];
 }
 
@@ -34,6 +44,7 @@ export interface WatchHistoryEntry {
   finishedAt?: number;
   rating?: number;
   notes?: string;
+  pass?: number;
   seasons?: WatchHistorySeason[];
 }
 

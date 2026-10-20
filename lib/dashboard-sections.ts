@@ -109,7 +109,7 @@ function isAtSeasonStartWithoutProgress(item: DashboardListItem): boolean {
   if (curEpisode !== 1) return false;
 
   const seasonProgress = item.seasonProgress?.find((p) => p.seasonNumber === curSeason);
-  return !seasonProgress?.episodeDates?.length;
+  return !(seasonProgress?.watchedCount ?? seasonProgress?.episodeDates?.length);
 }
 
 function sortDateForSeason(season: SeasonData): string {

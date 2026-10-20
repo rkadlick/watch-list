@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Plus, Calendar } from "lucide-react";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatISODateDisplay } from "@/lib/dates";
-import { EpisodeDate } from "./types";
+import { EpisodeWatch } from "./types";
 
 interface SeasonEditFormProps {
   canEdit: boolean;
@@ -12,7 +12,7 @@ interface SeasonEditFormProps {
   episodeCount?: number;
   airDate?: string;
   notes?: string;
-  episodeDates?: EpisodeDate[];
+  episodeWatches?: EpisodeWatch[];
   onNotesChange: (notes: string) => void;
   isUpdatingSeasonNotes: boolean;
 }
@@ -23,7 +23,7 @@ export function SeasonEditForm({
   episodeCount,
   airDate,
   notes = "",
-  episodeDates = [],
+  episodeWatches = [],
   onNotesChange,
   isUpdatingSeasonNotes,
 }: SeasonEditFormProps) {
@@ -50,16 +50,18 @@ export function SeasonEditForm({
     if (formattedAirDate) metaParts.push(`${prefix} ${formattedAirDate}`);
   }
 
-  const sortedEpisodeDates = [...episodeDates].sort(
+  const sortedEpisodeWatches = [...episodeWatches].sort(
     (a, b) => a.episodeNumber - b.episodeNumber
   );
 
-  const formatWatchDate = (timestamp: number) =>
-    new Date(timestamp).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+  const formatWatchDate = (timestamp?: number) =>
+    timestamp === undefined
+      ? "Date unknown"
+      : new Date(timestamp).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
 
   return (
     <div className="space-y-3 pt-2">
@@ -69,11 +71,11 @@ export function SeasonEditForm({
         </div>
       )}
 
-      {sortedEpisodeDates.length > 0 ? (
+      {sortedEpisodeWatches.length > 0 ? (
         <div className="space-y-1.5">
           <div className="text-xs font-medium text-muted-foreground">Episodes watched</div>
           <div className="space-y-1">
-            {sortedEpisodeDates.map((entry) => (
+            {sortedEpisodeWatches.map((entry) => (
               <div
                 key={entry.episodeNumber}
                 className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 rounded-md px-2.5 py-1.5"

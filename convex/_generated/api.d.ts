@@ -9,6 +9,7 @@
  */
 
 import type * as debug from "../debug.js";
+import type * as episodeTracking from "../episodeTracking.js";
 import type * as listItemReconcile from "../listItemReconcile.js";
 import type * as listItems from "../listItems.js";
 import type * as lists from "../lists.js";
@@ -27,6 +28,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   debug: typeof debug;
+  episodeTracking: typeof episodeTracking;
   listItemReconcile: typeof listItemReconcile;
   listItems: typeof listItems;
   lists: typeof lists;

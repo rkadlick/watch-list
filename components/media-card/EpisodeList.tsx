@@ -13,6 +13,8 @@ interface EpisodeListProps {
   episodes?: EpisodeData[];
   isCurrentSeason: boolean;
   isWatched: boolean;
+  /** Episodes watched this pass; undefined while loading */
+  watchedEpisodes?: Set<number>;
   currentEpisodeNumber?: number;
   canEdit: boolean;
   onMarkSeasonWatched: (seasonNumber: number) => void;
@@ -34,6 +36,7 @@ export function EpisodeList({
   episodes,
   isCurrentSeason,
   isWatched,
+  watchedEpisodes,
   currentEpisodeNumber,
   canEdit,
   onMarkSeasonWatched,
@@ -77,8 +80,11 @@ export function EpisodeList({
           const epNum = i + 1;
           const epData = episodeMap.get(epNum);
           const unreleased = isEpisodeUnreleasedInGrid(epData?.airDate);
-          const isEpWatched = isWatched || (isCurrentSeason && epNum < currentEp);
-          const isCurrent = isCurrentSeason && epNum === currentEp;
+          // Fall back to the cached position until episode watches load
+          const isEpWatched = watchedEpisodes
+            ? watchedEpisodes.has(epNum)
+            : isWatched || (isCurrentSeason && epNum < currentEp);
+          const isCurrent = isCurrentSeason && epNum === currentEp && !isEpWatched;
           const title = epData?.name
             ? `E${epNum}: ${epData.name}${epData.airDate ? ` · ${formatAirDate(epData.airDate)}` : ""}`
             : `Episode ${epNum}`;
