@@ -26,6 +26,7 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  Star,
   Trash2,
   Tv,
   XCircle,
@@ -38,6 +39,8 @@ import { MediaCardInnerProps } from "./types";
 import { cn } from "@/lib/utils";
 import { calculateTVStatus } from "@/lib/tv-status";
 import { isEpisodeLocked, resolveEpisodeAirDate } from "@/lib/tv-episodes";
+import { getReleasedNextSeason } from "@/lib/dashboard-sections";
+import { todayLocalISO } from "@/lib/dates";
 import { toast } from "sonner";
 
 interface Props extends MediaCardInnerProps {
@@ -128,10 +131,20 @@ export function MediaCardMinimal({
   const isToWatch = status === "to_watch";
   const isWatched = status === "watched";
   const isDropped = status === "dropped";
-  const isDone = isWatched || isDropped;
+  const today = todayLocalISO();
 
-  const curSeason = listItem.currentSeasonNumber ?? 1;
-  const curEpisode = listItem.currentEpisodeNumber ?? 1;
+  // Finished show whose next season has premiered — back to "up next"
+  const returningSeason =
+    isTV && isWatched ? getReleasedNextSeason(listItem, today) : undefined;
+  const isDone = (isWatched && !returningSeason) || isDropped;
+
+  const latestWatchEntry =
+    isMovie && listItem.watchHistory && listItem.watchHistory.length > 0
+      ? listItem.watchHistory[listItem.watchHistory.length - 1]
+      : undefined;
+
+  const curSeason = returningSeason?.seasonNumber ?? listItem.currentSeasonNumber ?? 1;
+  const curEpisode = returningSeason ? 1 : listItem.currentEpisodeNumber ?? 1;
 
   const displayStatus = isTV
     ? calculateTVStatus(media.seasonData, listItem.seasonProgress, status)
@@ -156,7 +169,6 @@ export function MediaCardMinimal({
 
   const year = media.releaseDate ? new Date(media.releaseDate).getFullYear() : null;
 
-  const today = new Date().toISOString().slice(0, 10);
   const allSeasons = (media.seasonData ?? [])
     .filter((s) => s.seasonNumber > 0)
     .sort((a, b) => a.seasonNumber - b.seasonNumber);
@@ -170,6 +182,7 @@ export function MediaCardMinimal({
   const showNewSeasonBadge =
     isTV &&
     status === "watched" &&
+    !returningSeason &&
     pendingNextSeasons.some(
       (s) => !s.airDate || (s.airDate && s.airDate > today)
     );
@@ -206,7 +219,7 @@ export function MediaCardMinimal({
   };
 
   const handleOpenLogWatchForm = () => {
-    setLogWatchDate(new Date().toISOString().slice(0, 10));
+    setLogWatchDate(todayLocalISO());
     setLogWatchRating(undefined);
     setLogWatchNotes("");
     setShowLogRewatchForm(true);
@@ -228,7 +241,7 @@ export function MediaCardMinimal({
     toast.success(wasWatched ? "Watch logged" : `${media.title} moved to Finished`);
   };
 
-  const showEpisodePosition = isTV && (isWatching || isToWatch);
+  const showEpisodePosition = isTV && (isWatching || isToWatch || !!returningSeason);
   const isMovieExpandable = isMovie && (canEdit || (media.watchProviders && media.watchProviders.length > 0));
   const isExpandable = (isTV && visibleSeasons.length > 0) || isMovieExpandable;
 
@@ -326,6 +339,11 @@ export function MediaCardMinimal({
                   {isToWatch && (
                     <div className="text-xs text-muted-foreground">Not started</div>
                   )}
+                  {returningSeason && (
+                    <div className="text-xs text-muted-foreground">
+                      Season {returningSeason.seasonNumber} is out
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -349,11 +367,31 @@ export function MediaCardMinimal({
                 </Badge>
               )}
 
-              {/* Watch count badge — only once there's more than one logged watch */}
-              {listItem.watchHistory && listItem.watchHistory.length > 1 && (
-                <Badge className="mt-1.5 text-[10px] px-1.5 py-0 bg-muted text-muted-foreground border-0">
-                  {listItem.watchHistory.length}× watched
-                </Badge>
+              {/* Rating + last watched + watch count — glanceable, no expand needed */}
+              {isMovie && isWatched && (listItem.rating !== undefined || listItem.finishedAt) && (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+                  {listItem.rating !== undefined && (
+                    <span className="inline-flex items-center gap-0.5 font-semibold text-[var(--rating-500)] tabular-nums">
+                      <Star className="h-3 w-3 fill-[var(--rating-400)]" />
+                      {listItem.rating}
+                    </span>
+                  )}
+                  {listItem.rating !== undefined && listItem.finishedAt && <span>·</span>}
+                  {listItem.finishedAt && <span>Watched {formatDate(listItem.finishedAt)}</span>}
+                  {listItem.watchHistory && listItem.watchHistory.length > 1 && (
+                    <>
+                      <span>·</span>
+                      <span>{listItem.watchHistory.length}× watched</span>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Review snippet from the most recent watch */}
+              {isMovie && isWatched && latestWatchEntry?.notes && (
+                <div className="mt-1 text-xs italic text-muted-foreground truncate">
+                  &ldquo;{latestWatchEntry.notes}&rdquo;
+                </div>
               )}
             </div>
 
@@ -407,7 +445,13 @@ export function MediaCardMinimal({
                   )}
                   onClick={handleAdvanceWithToast}
                   disabled={isAdvancingEpisode || isUpdatingStatus}
-                  title={isToWatch ? "Start watching" : "Mark episode as watched"}
+                  title={
+                    returningSeason
+                      ? `Start Season ${returningSeason.seasonNumber}`
+                      : isToWatch
+                        ? "Start watching"
+                        : "Mark episode as watched"
+                  }
                 >
                   <Check className={cn(
                     "h-5 w-5",
@@ -416,7 +460,7 @@ export function MediaCardMinimal({
                 </button>
               )}
 
-              {isWatched && (
+              {isWatched && !returningSeason && (
                 <div className="h-11 w-11 rounded-full flex items-center justify-center">
                   <CheckCircle2 className="h-8 w-8 text-[var(--success-600)] dark:text-[var(--success-300)]" />
                 </div>

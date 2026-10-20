@@ -4,11 +4,12 @@
 
 import type { Id } from "@/convex/_generated/dataModel";
 import type { SeasonProgress, StatusValue } from "@/components/media-card/types";
+import { daysBetweenISODates } from "@/lib/dates";
 
 export type DashboardTab = "current" | "havent_started" | "finished";
 
-/** Days after season premiere to treat as "newly released" */
-const RECENT_RELEASE_DAYS = 30;
+/** Days after a returning show's season premiere to flag it as a new season */
+const NEW_SEASON_DAYS = 7;
 
 interface SeasonData {
   seasonNumber: number;
@@ -32,9 +33,14 @@ export interface DashboardListItem {
   } | null;
 }
 
+export interface WatchingNowEntry<T> {
+  item: T;
+  /** Returning show whose next season premiered within NEW_SEASON_DAYS */
+  newSeason: boolean;
+}
+
 export interface AwaitingReleaseEntry<T> {
   item: T;
-  newlyReleased: boolean;
   sortDate: string;
 }
 
@@ -44,7 +50,7 @@ export interface ComingSoonEntry<T> {
 }
 
 export interface DashboardSections<T> {
-  watchingNow: T[];
+  watchingNow: WatchingNowEntry<T>[];
   awaitingRelease: AwaitingReleaseEntry<T>[];
   haventStartedReady: T[];
   haventStartedComingSoon: ComingSoonEntry<T>[];
@@ -97,14 +103,6 @@ function allReleasedSeasonsWatched(
   });
 }
 
-function isNewlyReleasedSeason(season: SeasonData, today: string): boolean {
-  if (!season.airDate || season.airDate > today) return false;
-  const air = new Date(`${season.airDate}T00:00:00`).getTime();
-  const now = Date.now();
-  const daysSince = (now - air) / (1000 * 60 * 60 * 24);
-  return daysSince >= 0 && daysSince <= RECENT_RELEASE_DAYS;
-}
-
 function isAtSeasonStartWithoutProgress(item: DashboardListItem): boolean {
   const curSeason = item.currentSeasonNumber ?? 1;
   const curEpisode = item.currentEpisodeNumber ?? 1;
@@ -118,69 +116,87 @@ function sortDateForSeason(season: SeasonData): string {
   return season.airDate ?? "9999-12-31";
 }
 
-function classifyAwaitingRelease(
+/**
+ * For a viewer who has finished at least one season, the next season they
+ * haven't started yet (dated or not). Undefined when they're mid-season or
+ * have nothing left to start.
+ */
+function getNextSeasonToStart(
   item: DashboardListItem,
   today: string
-): { awaiting: boolean; newlyReleased: boolean; sortDate?: string } {
+): SeasonData | undefined {
   const seasonData = item.media?.seasonData;
+  const highestWatched = getHighestWatchedSeasonNumber(item.seasonProgress);
+  if (highestWatched === 0) return undefined;
 
-  // Finished show with a next season pending (undated, upcoming, or newly released)
   if (item.status === "watched") {
-    const pending = getPendingNextSeasons(item, seasonData);
-    if (pending.length > 0) {
-      const next = pending[0];
-      const isReleased = Boolean(next.airDate && next.airDate <= today);
-      return {
-        awaiting: true,
-        newlyReleased: isReleased && isNewlyReleasedSeason(next, today),
-        sortDate: sortDateForSeason(next),
-      };
-    }
+    return getPendingNextSeasons(item, seasonData)[0];
   }
 
-  const allReleasedWatched = allReleasedSeasonsWatched(item, today);
-
-  if (!allReleasedWatched) {
-    return { awaiting: false, newlyReleased: false };
-  }
+  if (!isAtSeasonStartWithoutProgress(item)) return undefined;
 
   const curSeason = item.currentSeasonNumber ?? 1;
-  const seasons = getSeasonsWithAirDate(seasonData);
-  const curSeasonData = seasons.find((s) => s.seasonNumber === curSeason);
+  if (curSeason <= highestWatched) return undefined;
 
-  // Positioned at the next season premiere, haven't started it yet
-  if (curSeasonData && isAtSeasonStartWithoutProgress(item)) {
-    const isFuture = curSeasonData.airDate! > today;
-    const isReleased = curSeasonData.airDate! <= today;
+  const season = getSeasonsWithAirDate(seasonData).find(
+    (s) => s.seasonNumber === curSeason
+  );
+  if (!season) return undefined;
 
-    if (isFuture) {
+  // Only "waiting" if there's nothing aired left to catch up on
+  if (season.airDate! > today && !allReleasedSeasonsWatched(item, today)) {
+    return undefined;
+  }
+
+  return season;
+}
+
+/**
+ * Next season for a returning viewer that has already premiered.
+ * Used by cards to offer "start next season" on a finished show.
+ */
+export function getReleasedNextSeason(
+  item: DashboardListItem,
+  today: string
+): SeasonData | undefined {
+  const next = getNextSeasonToStart(item, today);
+  return next?.airDate && next.airDate <= today ? next : undefined;
+}
+
+type TVClassification =
+  | { bucket: "watchingNow"; newSeason: boolean }
+  | { bucket: "awaitingRelease"; sortDate: string }
+  | { bucket: "haventStarted" }
+  | { bucket: "finished" };
+
+function classifyTVItem(item: DashboardListItem, today: string): TVClassification {
+  if (item.status === "dropped") return { bucket: "finished" };
+
+  const next = getNextSeasonToStart(item, today);
+  if (next) {
+    // Next season is out — back to Watching Now, flagged for the first week
+    if (next.airDate && next.airDate <= today) {
       return {
-        awaiting: true,
-        newlyReleased: false,
-        sortDate: curSeasonData.airDate!,
+        bucket: "watchingNow",
+        newSeason: daysBetweenISODates(next.airDate, today) < NEW_SEASON_DAYS,
       };
     }
+    return { bucket: "awaitingRelease", sortDate: sortDateForSeason(next) };
+  }
 
-    if (isReleased) {
-      return {
-        awaiting: true,
-        newlyReleased: isNewlyReleasedSeason(curSeasonData, today),
-        sortDate: curSeasonData.airDate!,
-      };
+  // Caught up on aired content with an announced-but-undated season
+  if (allReleasedSeasonsWatched(item, today)) {
+    const pendingUndated = getPendingNextSeasons(item, item.media?.seasonData).filter(
+      (s) => !s.airDate
+    );
+    if (pendingUndated.length > 0) {
+      return { bucket: "awaitingRelease", sortDate: "9999-12-31" };
     }
   }
 
-  // Caught up on aired content but positioned at an undated next season
-  const pendingUndated = getPendingNextSeasons(item, seasonData).filter((s) => !s.airDate);
-  if (allReleasedWatched && pendingUndated.length > 0) {
-    return {
-      awaiting: true,
-      newlyReleased: false,
-      sortDate: "9999-12-31",
-    };
-  }
-
-  return { awaiting: false, newlyReleased: false };
+  if (item.status === "watching") return { bucket: "watchingNow", newSeason: false };
+  if (item.status === "to_watch") return { bucket: "haventStarted" };
+  return { bucket: "finished" };
 }
 
 function classifyComingSoon(
@@ -225,44 +241,15 @@ function classifyComingSoon(
   return { comingSoon: false, sortDate: today };
 }
 
-function classifyTVItem(
-  item: DashboardListItem,
-  today: string
-): "watchingNow" | "awaitingRelease" | "haventStarted" | "finished" {
-  const awaiting = classifyAwaitingRelease(item, today);
-  if (awaiting.awaiting) return "awaitingRelease";
-
-  if (item.status === "watching") return "watchingNow";
-
-  if (item.status === "to_watch") {
-    return "haventStarted";
-  }
-
-  if (item.status === "dropped") return "finished";
-
-  if (item.status === "watched") {
-    const pending = getPendingNextSeasons(item, item.media?.seasonData);
-    return pending.length === 0 ? "finished" : "awaitingRelease";
-  }
-
-  return "finished";
+/** New seasons pinned to the top; everything else keeps the list's sort order. */
+function sortWatchingNow<T>(entries: WatchingNowEntry<T>[]): WatchingNowEntry<T>[] {
+  return [
+    ...entries.filter((e) => e.newSeason),
+    ...entries.filter((e) => !e.newSeason),
+  ];
 }
 
-function sortAwaitingRelease<T>(
-  entries: AwaitingReleaseEntry<T>[]
-): AwaitingReleaseEntry<T>[] {
-  return [...entries].sort((a, b) => {
-    if (a.newlyReleased !== b.newlyReleased) {
-      return a.newlyReleased ? -1 : 1;
-    }
-    if (a.newlyReleased && b.newlyReleased) {
-      return b.sortDate.localeCompare(a.sortDate);
-    }
-    return a.sortDate.localeCompare(b.sortDate);
-  });
-}
-
-function sortComingSoon<T>(entries: ComingSoonEntry<T>[]): ComingSoonEntry<T>[] {
+function sortBySortDate<T extends { sortDate: string }>(entries: T[]): T[] {
   return [...entries].sort((a, b) => a.sortDate.localeCompare(b.sortDate));
 }
 
@@ -270,11 +257,20 @@ export function classifyDashboardItems<T extends DashboardListItem>(
   items: T[],
   today: string
 ): DashboardSections<T> {
-  const watchingNow: T[] = [];
+  const watchingNow: WatchingNowEntry<T>[] = [];
   const awaitingRelease: AwaitingReleaseEntry<T>[] = [];
   const haventStartedReady: T[] = [];
   const haventStartedComingSoon: ComingSoonEntry<T>[] = [];
   const finished: T[] = [];
+
+  const pushHaventStarted = (item: T) => {
+    const comingSoon = classifyComingSoon(item, today);
+    if (comingSoon.comingSoon) {
+      haventStartedComingSoon.push({ item, sortDate: comingSoon.sortDate });
+    } else {
+      haventStartedReady.push(item);
+    }
+  };
 
   for (const item of items) {
     if (!item.media) continue;
@@ -283,46 +279,23 @@ export function classifyDashboardItems<T extends DashboardListItem>(
       if (item.status === "watched" || item.status === "dropped") {
         finished.push(item);
       } else {
-        const comingSoon = classifyComingSoon(item, today);
-        if (comingSoon.comingSoon) {
-          haventStartedComingSoon.push({
-            item,
-            sortDate: comingSoon.sortDate,
-          });
-        } else {
-          haventStartedReady.push(item);
-        }
+        pushHaventStarted(item);
       }
       continue;
     }
 
-    const bucket = classifyTVItem(item, today);
+    const result = classifyTVItem(item, today);
 
-    switch (bucket) {
+    switch (result.bucket) {
       case "watchingNow":
-        watchingNow.push(item);
+        watchingNow.push({ item, newSeason: result.newSeason });
         break;
-      case "awaitingRelease": {
-        const meta = classifyAwaitingRelease(item, today);
-        awaitingRelease.push({
-          item,
-          newlyReleased: meta.newlyReleased,
-          sortDate: meta.sortDate ?? today,
-        });
+      case "awaitingRelease":
+        awaitingRelease.push({ item, sortDate: result.sortDate });
         break;
-      }
-      case "haventStarted": {
-        const comingSoon = classifyComingSoon(item, today);
-        if (comingSoon.comingSoon) {
-          haventStartedComingSoon.push({
-            item,
-            sortDate: comingSoon.sortDate,
-          });
-        } else {
-          haventStartedReady.push(item);
-        }
+      case "haventStarted":
+        pushHaventStarted(item);
         break;
-      }
       case "finished":
         finished.push(item);
         break;
@@ -330,10 +303,10 @@ export function classifyDashboardItems<T extends DashboardListItem>(
   }
 
   return {
-    watchingNow,
-    awaitingRelease: sortAwaitingRelease(awaitingRelease),
+    watchingNow: sortWatchingNow(watchingNow),
+    awaitingRelease: sortBySortDate(awaitingRelease),
     haventStartedReady,
-    haventStartedComingSoon: sortComingSoon(haventStartedComingSoon),
+    haventStartedComingSoon: sortBySortDate(haventStartedComingSoon),
     finished,
   };
 }

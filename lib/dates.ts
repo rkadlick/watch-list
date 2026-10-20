@@ -116,3 +116,20 @@ export function formatISODateDisplay(isoString?: string): string | null {
     year: "numeric" 
   });
 }
+
+/**
+ * Today's date (YYYY-MM-DD) in the viewer's LOCAL timezone.
+ * Use this when comparing against TMDB air/release dates, which are date-only.
+ */
+export function todayLocalISO(): string {
+  return formatTimestampToDateInput(Date.now());
+}
+
+/** Whole days from one YYYY-MM-DD date to another (timezone-independent). */
+export function daysBetweenISODates(from: string, to: string): number {
+  const toUtc = (s: string) => {
+    const [year, month, day] = s.split("-").map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
+  return Math.round((toUtc(to) - toUtc(from)) / (1000 * 60 * 60 * 24));
+}

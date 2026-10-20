@@ -907,9 +907,14 @@ function resolveEpisodeAirDate(
   return undefined;
 }
 
+// Earliest timezone offset (UTC+14). Clients lock episodes until local
+// midnight; the server can't know the caller's timezone, so it only rejects
+// an episode before it has aired anywhere.
+const EARLIEST_TZ_OFFSET_MS = 14 * 60 * 60 * 1000;
+
 function isEpisodeUnreleased(airDate: string | undefined): boolean {
   if (!airDate) return false;
-  return new Date(`${airDate}T00:00:00`).getTime() > Date.now();
+  return new Date(`${airDate}T00:00:00Z`).getTime() - EARLIEST_TZ_OFFSET_MS > Date.now();
 }
 
 function assertEpisodeHasAired(
@@ -1089,8 +1094,26 @@ export const advanceEpisode = mutation({
     const visibleSeasons = (media.seasonData ?? []).filter((s) => s.airDate);
     if (visibleSeasons.length === 0) throw new Error("No season data available");
 
-    const curSeason = listItem.currentSeasonNumber ?? 1;
-    const curEpisode = listItem.currentEpisodeNumber ?? 1;
+    let curSeason = listItem.currentSeasonNumber ?? 1;
+    let curEpisode = listItem.currentEpisodeNumber ?? 1;
+
+    // Finished show returning for a new season: the stored position may still
+    // point at the last episode already watched — start at the next premiere.
+    if (listItem.status === "watched") {
+      const highestWatched = Math.max(
+        0,
+        ...(listItem.seasonProgress ?? [])
+          .filter((p) => p.status === "watched")
+          .map((p) => p.seasonNumber)
+      );
+      const nextSeason = [...visibleSeasons]
+        .sort((a, b) => a.seasonNumber - b.seasonNumber)
+        .find((s) => s.seasonNumber > highestWatched);
+      if (highestWatched > 0 && curSeason <= highestWatched && nextSeason) {
+        curSeason = nextSeason.seasonNumber;
+        curEpisode = 1;
+      }
+    }
 
     const currentSeasonData = visibleSeasons.find((s) => s.seasonNumber === curSeason);
     const episodeCount = currentSeasonData?.episodeCount ?? 1;

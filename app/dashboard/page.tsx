@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/AlertDialog";
 import { MediaCardSkeleton } from "@/components/media-card/MediaCardSkeleton";
 import { convertToCSV, downloadFile, generateFilename } from "@/lib/export";
+import { todayLocalISO } from "@/lib/dates";
 import {
   classifyDashboardItems,
   getDefaultDashboardTab,
@@ -94,27 +95,27 @@ type ListItemWithMedia = Doc<"listItems"> & {
 function DashboardCardGrid({
   items,
   canEdit,
-  newlyReleasedIds,
+  newSeasonIds,
 }: {
   items: ListItemWithMedia[];
   canEdit: boolean;
-  newlyReleasedIds?: Set<string>;
+  newSeasonIds?: Set<string>;
 }) {
   if (items.length === 0) return null;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
       {items.map((item, index) => {
-        const isNewlyReleased = newlyReleasedIds?.has(item._id);
+        const isNewSeason = newSeasonIds?.has(item._id);
         return (
           <div
             key={item._id}
             className={cn(
-              isNewlyReleased &&
+              isNewSeason &&
                 "rounded-xl ring-2 ring-[var(--primary-400)] dark:ring-[var(--primary-500)] ring-offset-2 ring-offset-background"
             )}
           >
-            {isNewlyReleased && (
+            {isNewSeason && (
               <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--primary-700)] dark:text-[var(--primary-200)] bg-[var(--primary-50)] dark:bg-[var(--primary-800)] rounded-t-xl border-b border-[var(--primary-200)] dark:border-[var(--primary-600)]">
                 New season out
               </div>
@@ -381,7 +382,7 @@ export default function DashboardPage() {
     ? (sortByPerList[selectedListId.toString()] ?? "added")
     : "added";
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalISO();
 
   const sortedItems = useMemo(() => {
     if (!listItems) return undefined;
@@ -558,12 +559,13 @@ export default function DashboardPage() {
     const currentCount =
       sections.watchingNow.length + sections.awaitingRelease.length;
 
-    const newlyReleasedIds = new Set(
-      sections.awaitingRelease
-        .filter((e) => e.newlyReleased)
+    const newSeasonIds = new Set<string>(
+      sections.watchingNow
+        .filter((e) => e.newSeason)
         .map((e) => e.item._id)
     );
 
+    const watchingNowItems = sections.watchingNow.map((e) => e.item);
     const awaitingReleaseItems = sections.awaitingRelease.map((e) => e.item);
     const comingSoonItems = sections.haventStartedComingSoon.map((e) => e.item);
     const haventStartedCount = getHaventStartedCount(sections);
@@ -636,8 +638,9 @@ export default function DashboardPage() {
                 >
                   <div className="pt-2">
                     <DashboardCardGrid
-                      items={sections.watchingNow}
+                      items={watchingNowItems}
                       canEdit={canEdit}
+                      newSeasonIds={newSeasonIds}
                     />
                   </div>
                 </WatchSubSection>
@@ -652,7 +655,6 @@ export default function DashboardPage() {
                     <DashboardCardGrid
                       items={awaitingReleaseItems}
                       canEdit={canEdit}
-                      newlyReleasedIds={newlyReleasedIds}
                     />
                   </div>
                 </WatchSubSection>
@@ -1271,14 +1273,14 @@ export default function DashboardPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="inline-flex items-center rounded-lg border border-border bg-muted/30 p-0.5">
+                  <div className="flex w-full sm:w-auto items-center rounded-lg border border-border bg-muted/30 p-1 gap-1">
                     {TYPE_FILTER_OPTIONS.map(({ value, label, icon: Icon }) => (
                       <button
                         key={value}
                         type="button"
                         onClick={() => setTypeFilter(value)}
                         className={cn(
-                          "inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                          "flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-colors",
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
                           typeFilter === value
                             ? "bg-background text-foreground shadow-sm"
@@ -1288,8 +1290,8 @@ export default function DashboardPage() {
                         aria-label={label}
                         aria-pressed={typeFilter === value}
                       >
-                        <Icon className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">{label}</span>
+                        <Icon className="h-4 w-4" />
+                        <span>{label}</span>
                       </button>
                     ))}
                   </div>
