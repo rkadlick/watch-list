@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { useMutationWithError } from "@/lib/hooks/useMutationWithError";
+import { useTvTrackingMode } from "@/lib/hooks/useTvTrackingMode";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import type { MediaCardProps, StatusValue } from "./types";
 import { MediaCardSmall } from "./MediaCardSmall";
 import { MediaCardRegular } from "./MediaCardRegular";
@@ -138,6 +141,42 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
     }
   );
   const {
+    mutate: advanceSeason,
+    isPending: isAdvancingSeason,
+  } = useMutationWithError(
+    api.listItems.advanceSeason,
+    {
+      successMessage: "Season marked as watched",
+    }
+  );
+  const {
+    mutate: rewindSeason,
+    isPending: isRewindingSeason,
+  } = useMutationWithError(
+    api.listItems.rewindSeason,
+    {
+      successMessage: "Season unmarked",
+    }
+  );
+  const {
+    mutate: setEpisodeWatched,
+  } = useMutationWithError(api.listItems.setEpisodeWatched);
+  const {
+    mutate: startSeasonRewatch,
+    isPending: isStartingSeasonRewatch,
+  } = useMutationWithError(api.listItems.startSeasonRewatch, {
+    successMessage: "Season rewatch started — previous watch dates are kept",
+  });
+  const {
+    mutate: stopSeasonRewatch,
+    isPending: isStoppingSeasonRewatch,
+  } = useMutationWithError(api.listItems.stopSeasonRewatch, {
+    successMessage: "Season rewatch stopped",
+  });
+  const { mutate: logEpisodeRewatch } = useMutationWithError(api.listItems.logEpisodeRewatch);
+  const { mutate: removeEpisodeRewatch } = useMutationWithError(api.listItems.removeEpisodeRewatch);
+  const { mode: tvMode } = useTvTrackingMode();
+  const {
     mutate: startRewatch,
     isPending: isStartingRewatch,
   } = useMutationWithError(
@@ -250,6 +289,64 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
     await markSeasonWatched({ listItemId: listItem._id, seasonNumber });
   };
 
+  const handleAdvanceSeason = async () => {
+    await advanceSeason({ listItemId: listItem._id });
+  };
+
+  const handleRewindSeason = async () => {
+    await rewindSeason({ listItemId: listItem._id });
+  };
+
+  const handleSetEpisodeWatched = async (
+    seasonNumber: number,
+    episodeNumber: number,
+    watched: boolean,
+    alsoMarkEarlier = false
+  ) => {
+    const ref = { listItemId: listItem._id, seasonNumber, episodeNumber };
+    const result = await setEpisodeWatched({ ...ref, watched, alsoMarkEarlier });
+    if (!watched && result) {
+      // Undo restores the original watch date, not today's
+      toast(`Unmarked S${seasonNumber}E${episodeNumber}`, {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            void setEpisodeWatched({
+              ...ref,
+              watched: true,
+              restoreWatchedAt: result.removedWatchedAt,
+            }).catch(() => {});
+          },
+        },
+      });
+    }
+  };
+
+  const handleStartSeasonRewatch = async (seasonNumber: number) => {
+    await startSeasonRewatch({ listItemId: listItem._id, seasonNumber });
+  };
+
+  const handleStopSeasonRewatch = async (seasonNumber: number) => {
+    await stopSeasonRewatch({ listItemId: listItem._id, seasonNumber });
+  };
+
+  const handleLogEpisodeRewatch = async (seasonNumber: number, episodeNumber: number) => {
+    const watchId = await logEpisodeRewatch({ listItemId: listItem._id, seasonNumber, episodeNumber });
+    toast.success(`Logged a rewatch of S${seasonNumber}E${episodeNumber}`, {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          void removeEpisodeRewatch({ watchId }).catch(() => {});
+        },
+      },
+    });
+  };
+
+  const handleRemoveEpisodeRewatch = async (watchId: Id<"episodeWatches">) => {
+    await removeEpisodeRewatch({ watchId });
+    toast.success("Watch removed");
+  };
+
   const handleStartRewatch = async () => {
     await startRewatch({ listItemId: listItem._id });
   };
@@ -310,6 +407,16 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
     handleAdvanceEpisode,
     handleRewindEpisode,
     handleMarkSeasonWatched,
+    handleSetEpisodeWatched,
+    handleStartSeasonRewatch,
+    handleStopSeasonRewatch,
+    handleLogEpisodeRewatch,
+    handleRemoveEpisodeRewatch,
+    isStartingSeasonRewatch,
+    isStoppingSeasonRewatch,
+    handleAdvanceSeason,
+    handleRewindSeason,
+    tvMode,
     // Rewatch handlers
     handleStartRewatch,
     handleLogWatchEntry,
@@ -329,6 +436,8 @@ export function MediaCard({ canEdit, listItem, size = "small", priority = false 
     isAdvancingEpisode,
     isRewindingEpisode,
     isMarkingSeasonWatched,
+    isAdvancingSeason,
+    isRewindingSeason,
     isStartingRewatch,
     isLoggingWatchEntry,
     isRemovingWatchEntry,

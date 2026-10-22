@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Plus, Calendar } from "lucide-react";
 import { Textarea } from "@/components/ui/Textarea";
 import { formatISODateDisplay } from "@/lib/dates";
-import { EpisodeWatch } from "./types";
+import { EpisodeWatch, SeasonWatchArchive } from "./types";
 
 interface SeasonEditFormProps {
   canEdit: boolean;
@@ -13,6 +13,8 @@ interface SeasonEditFormProps {
   airDate?: string;
   notes?: string;
   episodeWatches?: EpisodeWatch[];
+  /** Earlier watches of this season, archived by season rewatches */
+  previousWatches?: SeasonWatchArchive[];
   onNotesChange: (notes: string) => void;
   isUpdatingSeasonNotes: boolean;
 }
@@ -24,6 +26,7 @@ export function SeasonEditForm({
   airDate,
   notes = "",
   episodeWatches = [],
+  previousWatches = [],
   onNotesChange,
   isUpdatingSeasonNotes,
 }: SeasonEditFormProps) {
@@ -68,6 +71,28 @@ export function SeasonEditForm({
       {metaParts.length > 0 && (
         <div className="text-xs text-muted-foreground pb-1">
           {metaParts.join(" • ")}
+        </div>
+      )}
+
+      {previousWatches.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-xs font-medium text-muted-foreground">Previous watches</div>
+          <div className="space-y-1">
+            {[...previousWatches].reverse().map((watch) => (
+              <div
+                key={watch.pass}
+                className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 rounded-md px-2.5 py-1.5"
+              >
+                <span className="text-foreground">Watched</span>
+                <span className="flex items-center gap-1 tabular-nums">
+                  <Calendar className="h-3 w-3" />
+                  {watch.startedAt === undefined && watch.finishedAt === undefined
+                    ? "Dates unknown"
+                    : `${formatWatchDate(watch.startedAt)} – ${formatWatchDate(watch.finishedAt)}`}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

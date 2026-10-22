@@ -1,4 +1,5 @@
 import type { Id } from "@/convex/_generated/dataModel";
+import type { TvTrackingMode } from "@/lib/episode-tracking";
 
 export type CardSize = "small" | "normal" | "large";
 export type StatusValue = "to_watch" | "watching" | "watched" | "dropped";
@@ -17,6 +18,23 @@ export interface EpisodeWatch {
   watchedAt?: number;
 }
 
+/** Any watch of an episode — current progress or history */
+export interface EpisodeWatchLogEntry extends EpisodeWatch {
+  _id?: Id<"episodeWatches">;
+  pass: number;
+  /** Counts toward current progress */
+  isCurrent: boolean;
+  /** Not this episode's first watch */
+  isRewatch: boolean;
+}
+
+/** A season watch archived by a season rewatch */
+export interface SeasonWatchArchive {
+  pass: number;
+  startedAt?: number;
+  finishedAt?: number;
+}
+
 export interface SeasonProgress {
   seasonNumber: number;
   status: SeasonStatusValue;
@@ -26,6 +44,10 @@ export interface SeasonProgress {
   finishedAt?: number;
   /** Episodes watched this pass (cached from episodeWatches) */
   watchedCount?: number;
+  /** Set while the season is on its own rewatch pass */
+  pass?: number;
+  /** Earlier watches of this season */
+  history?: SeasonWatchArchive[];
   /** Legacy — superseded by episodeWatches */
   episodeDates?: EpisodeDate[];
 }
@@ -36,6 +58,8 @@ export interface WatchHistorySeason {
   finishedAt?: number;
   rating?: number;
   notes?: string;
+  pass?: number;
+  history?: SeasonWatchArchive[];
   episodeDates?: EpisodeDate[];
 }
 
@@ -130,6 +154,21 @@ export interface MediaCardInnerProps extends Omit<MediaCardProps, "size"> {
   handleAdvanceEpisode: () => Promise<void>;
   handleRewindEpisode: () => Promise<void>;
   handleMarkSeasonWatched: (seasonNumber: number) => Promise<void>;
+  handleSetEpisodeWatched: (
+    seasonNumber: number,
+    episodeNumber: number,
+    watched: boolean,
+    alsoMarkEarlier?: boolean
+  ) => Promise<void>;
+  handleStartSeasonRewatch: (seasonNumber: number) => Promise<void>;
+  handleStopSeasonRewatch: (seasonNumber: number) => Promise<void>;
+  handleLogEpisodeRewatch: (seasonNumber: number, episodeNumber: number) => Promise<void>;
+  handleRemoveEpisodeRewatch: (watchId: Id<"episodeWatches">) => Promise<void>;
+  isStartingSeasonRewatch: boolean;
+  isStoppingSeasonRewatch: boolean;
+  handleAdvanceSeason: () => Promise<void>;
+  handleRewindSeason: () => Promise<void>;
+  tvMode: TvTrackingMode;
   // Rewatch handlers
   handleStartRewatch: () => Promise<void>;
   handleLogWatchEntry: (entry: { startedAt?: number; finishedAt?: number; rating?: number; notes?: string }) => Promise<void>;
@@ -150,6 +189,8 @@ export interface MediaCardInnerProps extends Omit<MediaCardProps, "size"> {
   isAdvancingEpisode: boolean;
   isRewindingEpisode: boolean;
   isMarkingSeasonWatched: boolean;
+  isAdvancingSeason: boolean;
+  isRewindingSeason: boolean;
   isStartingRewatch: boolean;
   isLoggingWatchEntry: boolean;
   isRemovingWatchEntry: boolean;

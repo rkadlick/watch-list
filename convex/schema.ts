@@ -1,12 +1,21 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+// A season watch archived when that season is rewatched (dates of that pass)
+const seasonWatchArchive = v.object({
+  pass: v.number(),
+  startedAt: v.optional(v.number()),
+  finishedAt: v.optional(v.number()),
+});
+
 export default defineSchema({ 
   users: defineTable({
     clerkId: v.string(),
     email: v.string(),
     name: v.optional(v.string()), 
     avatarUrl: v.optional(v.string()),
+    // TV card controls: advance by whole season (default) or by episode
+    tvTrackingMode: v.optional(v.union(v.literal("season"), v.literal("episode"))),
   }).index("by_clerk_id", ["clerkId"]).index("by_email", ["email"]),
 
   lists: defineTable({
@@ -122,6 +131,10 @@ export default defineSchema({
           finishedAt: v.optional(v.number()), // When season finished
           // Cached count of episodes watched in the current pass (see episodeWatches)
           watchedCount: v.optional(v.number()),
+          // Set while this season is on its own rewatch pass (else the item's watchPass)
+          pass: v.optional(v.number()),
+          // Earlier watches of this season, archived by season rewatches
+          history: v.optional(v.array(seasonWatchArchive)),
           // Legacy (trackingVersion < 2) — episode watches now live in episodeWatches
           episodeDates: v.optional(
             v.array(
@@ -152,6 +165,8 @@ export default defineSchema({
                 finishedAt: v.optional(v.number()),
                 rating: v.optional(v.number()),
                 notes: v.optional(v.string()),
+                pass: v.optional(v.number()),
+                history: v.optional(v.array(seasonWatchArchive)),
                 episodeDates: v.optional(
                   v.array(
                     v.object({
@@ -217,7 +232,9 @@ export default defineSchema({
     .index("by_media_id", ["mediaId"]), // Optional: Find all lists containing a media item
 
   // One row per episode watch (TV). An episode is watched when it has a row
-  // for the list item's current watchPass; rows from earlier passes are history.
+  // in its season's current pass (seasonProgress[].pass ?? watchPass); rows
+  // from other passes are history — earlier watch-throughs, season rewatches
+  // and one-off episode rewatches.
   episodeWatches: defineTable({
     listItemId: v.id("listItems"),
     pass: v.number(),

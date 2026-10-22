@@ -75,9 +75,16 @@ import {
 } from "@/components/dashboard/UpdatesBanner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { cn } from "@/lib/utils";
+import { useTvTrackingMode } from "@/lib/hooks/useTvTrackingMode";
+import type { TvTrackingMode } from "@/lib/episode-tracking";
 
 type TypeFilter = "movie" | "tv";
 type SortOption = "added" | "release" | "rating" | "alpha" | "priority";
+
+const TV_MODE_OPTIONS: { value: TvTrackingMode; label: string; title: string }[] = [
+  { value: "season", label: "Seasons", title: "Check off a whole season at a time" },
+  { value: "episode", label: "Episodes", title: "Check off one episode at a time" },
+];
 
 const TYPE_FILTER_OPTIONS: {
   value: TypeFilter;
@@ -165,6 +172,7 @@ export default function DashboardPage() {
   const [newListDescription, setNewListDescription] = useState("");
   const [sortByPerList, setSortByPerList] = useState<Record<string, SortOption>>({});
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("movie");
+  const { mode: tvMode, setMode: setTvMode } = useTvTrackingMode();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -1273,6 +1281,32 @@ export default function DashboardPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {typeFilter === "tv" && (
+                    <div
+                      className="flex items-center rounded-md border border-border bg-muted/30 p-0.5 gap-0.5"
+                      role="group"
+                      aria-label="TV tracking mode"
+                    >
+                      {TV_MODE_OPTIONS.map(({ value, label, title }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setTvMode(value)}
+                          className={cn(
+                            "rounded px-2.5 h-7 text-xs font-medium transition-colors",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                            tvMode === value
+                              ? "bg-background text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground hover:bg-background/60"
+                          )}
+                          title={title}
+                          aria-pressed={tvMode === value}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <div className="flex w-full sm:w-auto items-center rounded-lg border border-border bg-muted/30 p-1 gap-1">
                     {TYPE_FILTER_OPTIONS.map(({ value, label, icon: Icon }) => (
                       <button

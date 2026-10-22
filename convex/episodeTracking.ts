@@ -8,6 +8,9 @@ import {
   isEpisodeWatched,
   legacyEpisodeWatches,
   pruneSeasonProgress,
+  seasonPass,
+  selectCurrentWatches,
+  type EpisodeMark,
   type EpisodeRef,
   type EpisodeWatchRow,
   type SeasonProgressLike,
@@ -59,12 +62,21 @@ export async function readEpisodeWatches(
   ctx: QueryCtx,
   item: ListItem,
   media: Media
-): Promise<{ pass: number; watches: EpisodeWatchRow[] }> {
+): Promise<{
+  pass: number;
+  /** Seasons on their own rewatch pass; every other season uses `pass` */
+  seasonPasses: Array<{ seasonNumber: number; pass: number }>;
+  watches: Array<EpisodeWatchRow & { _id?: Id<"episodeWatches"> }>;
+}> {
   if (isMigratedToEpisodeWatches(item)) {
     const rows = await loadAllWatches(ctx, item._id);
     return {
       pass: item.watchPass ?? 1,
-      watches: rows.map(({ pass, seasonNumber, episodeNumber, watchedAt }) => ({
+      seasonPasses: (item.seasonProgress ?? []).flatMap((p) =>
+        p.pass === undefined ? [] : [{ seasonNumber: p.seasonNumber, pass: p.pass }]
+      ),
+      watches: rows.map(({ _id, pass, seasonNumber, episodeNumber, watchedAt }) => ({
+        _id,
         pass,
         seasonNumber,
         episodeNumber,
@@ -73,7 +85,7 @@ export async function readEpisodeWatches(
     };
   }
   const legacy = legacyEpisodeWatches(item, media.seasonData);
-  return { pass: legacy.pass, watches: legacy.rows };
+  return { pass: legacy.pass, seasonPasses: [], watches: legacy.rows };
 }
 
 /** Give legacy history entries the pass number they were converted under. */
@@ -84,18 +96,20 @@ export function stampHistoryPasses<T extends { pass?: number }>(
 }
 
 /**
- * Current-pass rows for a list item, writing legacy data into episodeWatches
- * first if the item hasn't been migrated. The caller's patch must then stamp
- * trackingVersion — applyEpisodeChanges does.
+ * Current rows for a list item (each season's current pass) plus every row,
+ * writing legacy data into episodeWatches first if the item hasn't been
+ * migrated. The caller's patch must then stamp trackingVersion —
+ * applyEpisodeChanges does.
  */
 export async function ensureEpisodeWatches(
   ctx: MutationCtx,
   item: ListItem,
   media: Media
-): Promise<{ pass: number; rows: Doc<"episodeWatches">[] }> {
+): Promise<{ pass: number; rows: Doc<"episodeWatches">[]; all: Doc<"episodeWatches">[] }> {
   if (isMigratedToEpisodeWatches(item)) {
     const pass = item.watchPass ?? 1;
-    return { pass, rows: await loadPassWatches(ctx, item._id, pass) };
+    const all = await loadAllWatches(ctx, item._id);
+    return { pass, rows: selectCurrentWatches(all, item.seasonProgress, pass), all };
   }
 
   const legacy = legacyEpisodeWatches(item, media.seasonData);
@@ -109,13 +123,14 @@ export async function ensureEpisodeWatches(
       await ctx.db.insert("episodeWatches", { listItemId: item._id, ...row });
     }
   }
-  return { pass: legacy.pass, rows: await loadPassWatches(ctx, item._id, legacy.pass) };
+  const all = await loadAllWatches(ctx, item._id);
+  return { pass: legacy.pass, rows: all.filter((r) => r.pass === legacy.pass), all };
 }
 
 /**
- * The single write path for TV progress: mark/unmark episodes in the current
- * pass, then recompute and cache season statuses, show status, position and
- * auto-tracked dates on the list item.
+ * The single write path for TV progress: mark/unmark episodes in each
+ * season's current pass, then recompute and cache season statuses, show
+ * status, position and auto-tracked dates on the list item.
  */
 export async function applyEpisodeChanges(
   ctx: MutationCtx,
@@ -129,8 +144,9 @@ export async function applyEpisodeChanges(
     pass: passOverride,
     preserveDropped = false,
     touchList = true,
+    keepShowDates = false,
   }: {
-    mark?: EpisodeRef[];
+    mark?: EpisodeMark[];
     unmark?: EpisodeRef[];
     /** Season entries to derive from, when the caller changed them (e.g. dropped flags) */
     seasonProgress?: SeasonProgressLike[];
@@ -141,25 +157,34 @@ export async function applyEpisodeChanges(
     preserveDropped?: boolean;
     /** Bump the list's updatedAt (off for background migrations) */
     touchList?: boolean;
+    /** Leave existing show-level dates alone (starting/stopping season rewatches) */
+    keepShowDates?: boolean;
   } = {}
 ): Promise<TvDerivation> {
   const now = Date.now();
   const seasons = getTrackedSeasons(media.seasonData);
   const current = await ensureEpisodeWatches(ctx, item, media);
   const pass = passOverride ?? current.pass;
-  const rows = passOverride === undefined ? current.rows : await loadPassWatches(ctx, item._id, pass);
+  // A new pass or season passes change which rows count as current
+  const rows = selectCurrentWatches(current.all, seasonProgress, pass);
 
   const before = deriveTvState({
     seasons,
     seasonProgress,
-    watched: buildWatchedMap(rows),
+    watched: buildWatchedMap(current.rows),
     fallbackStatus: item.status,
   });
 
   const watched = buildWatchedMap(rows);
   for (const ref of mark) {
     if (isEpisodeWatched(watched, ref)) continue;
-    await ctx.db.insert("episodeWatches", { listItemId: item._id, pass, ...ref, watchedAt: now });
+    await ctx.db.insert("episodeWatches", {
+      listItemId: item._id,
+      pass: seasonPass(seasonProgress, pass, ref.seasonNumber),
+      seasonNumber: ref.seasonNumber,
+      episodeNumber: ref.episodeNumber,
+      watchedAt: ref.watchedAt === null ? undefined : ref.watchedAt ?? now,
+    });
     let set = watched.get(ref.seasonNumber);
     if (!set) watched.set(ref.seasonNumber, (set = new Set()));
     set.add(ref.episodeNumber);
@@ -196,7 +221,9 @@ export async function applyEpisodeChanges(
 
     if (count > 0 && prevCount === 0 && next.startedAt === undefined) next.startedAt = now;
     if (count === 0 && prevCount > 0) next.startedAt = undefined;
-    if (entry.status === "watched" && prev?.status !== "watched") next.finishedAt = now;
+    if (entry.status === "watched" && prev?.status !== "watched" && next.finishedAt === undefined) {
+      next.finishedAt = now;
+    }
     if (entry.status !== "watched" && prev?.status === "watched") next.finishedAt = undefined;
 
     return next;
@@ -221,9 +248,20 @@ export async function applyEpisodeChanges(
   if (after.totalWatched > 0 && before.totalWatched === 0 && item.startedAt === undefined) {
     patch.startedAt = now;
   }
-  if (after.totalWatched === 0 && before.totalWatched > 0) patch.startedAt = undefined;
-  if (after.complete && !before.complete) patch.finishedAt = now;
-  if (!after.complete && before.complete) patch.finishedAt = undefined;
+  if (after.totalWatched === 0 && before.totalWatched > 0 && !keepShowDates) {
+    patch.startedAt = undefined;
+  }
+  if (after.complete && !before.complete) {
+    // Finishing a season rewatch doesn't move the show's finish date
+    const newlyFinished = after.seasonProgress.filter(
+      (p) =>
+        p.status === "watched" &&
+        before.seasonProgress.find((b) => b.seasonNumber === p.seasonNumber)?.status !== "watched"
+    );
+    const onlyRewatches = newlyFinished.every((p) => p.pass !== undefined);
+    if (item.finishedAt === undefined || !(onlyRewatches || keepShowDates)) patch.finishedAt = now;
+  }
+  if (!after.complete && before.complete && !keepShowDates) patch.finishedAt = undefined;
 
   await ctx.db.patch(item._id, patch);
   if (touchList) await ctx.db.patch(item.listId, { updatedAt: now });

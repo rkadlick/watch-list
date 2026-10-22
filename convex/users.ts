@@ -1,5 +1,6 @@
 import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { DEFAULT_TV_TRACKING_MODE } from "../lib/episode-tracking";
 
 /**
  * Helper function to ensure a user exists in the database
@@ -103,6 +104,40 @@ export const searchUsers = query({
       name: user.name,
       avatarUrl: user.avatarUrl,
     }));
+  },
+});
+
+// The signed-in user's display preferences
+export const getMyPreferences = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    return { tvTrackingMode: user?.tvTrackingMode ?? DEFAULT_TV_TRACKING_MODE };
+  },
+});
+
+export const setTvTrackingMode = mutation({
+  args: {
+    mode: v.union(v.literal("season"), v.literal("episode")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk_id", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+
+    await ctx.db.patch(user._id, { tvTrackingMode: args.mode });
   },
 });
 

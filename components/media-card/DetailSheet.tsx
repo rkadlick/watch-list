@@ -18,7 +18,7 @@ import {
   PriorityValue,
   WatchHistoryEntry,
   EpisodeData,
-  EpisodeWatch,
+  EpisodeWatchLogEntry,
 } from "./types";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -86,6 +86,7 @@ interface DetailSheetProps {
   handleStartRewatch: () => Promise<void>;
   handleLogWatchEntry: (entry: { startedAt?: number; finishedAt?: number; rating?: number; notes?: string }) => Promise<void>;
   handleRemoveWatchEntry: (entryIndex: number) => Promise<void>;
+  handleRemoveEpisodeRewatch: (watchId: Id<"episodeWatches">) => Promise<void>;
   getSeasonStatus: (seasonNumber: number) => StatusValue;
   getSeasonProgress: (seasonNumber: number) => SeasonProgress | undefined;
   formatDate: (timestamp?: number) => string | null;
@@ -116,11 +117,15 @@ function formatDateStr(timestamp?: number): string {
 }
 
 function TvWatchDatesSection({
-  episodeWatchDates,
+  entries,
+  canEdit,
+  onRemove,
 }: {
-  episodeWatchDates: EpisodeWatch[];
+  entries: EpisodeWatchLogEntry[];
+  canEdit: boolean;
+  onRemove: (watchId: Id<"episodeWatches">) => Promise<void>;
 }) {
-  if (episodeWatchDates.length === 0) return null;
+  if (entries.length === 0) return null;
 
   return (
     <div className="space-y-2">
@@ -128,20 +133,52 @@ function TvWatchDatesSection({
         <History className="h-3.5 w-3.5" />
         Watch dates
         <Badge className="h-4 px-1.5 text-[10px] bg-muted text-muted-foreground ml-1">
-          {episodeWatchDates.length} ep{episodeWatchDates.length !== 1 ? "s" : ""}
+          {entries.length} watch{entries.length !== 1 ? "es" : ""}
         </Badge>
       </div>
       <div className="space-y-1 max-h-40 overflow-y-auto">
-        {episodeWatchDates.map((entry) => (
+        {entries.map((entry) => (
           <div
-            key={`${entry.seasonNumber}-${entry.episodeNumber}`}
-            className="flex items-center justify-between text-xs bg-muted/40 rounded-md px-2.5 py-1.5"
+            key={`${entry.seasonNumber}-${entry.episodeNumber}-${entry.pass}`}
+            className="flex items-center justify-between gap-2 text-xs bg-muted/40 rounded-md px-2.5 py-1.5"
           >
-            <span className="font-medium text-foreground tabular-nums">
+            <span className="flex items-center gap-1.5 font-medium text-foreground tabular-nums">
               S{String(entry.seasonNumber).padStart(2, "0")} E{String(entry.episodeNumber).padStart(2, "0")}
+              {entry.isRewatch && (
+                <Badge className="h-4 px-1.5 text-[10px] font-normal bg-[var(--primary-100)] dark:bg-[var(--primary-800)] text-[var(--primary-700)] dark:text-[var(--primary-200)] border-0">
+                  Rewatch
+                </Badge>
+              )}
             </span>
-            <span className="text-muted-foreground tabular-nums">
+            <span className="flex items-center gap-2 text-muted-foreground tabular-nums">
               {entry.watchedAt === undefined ? "Date unknown" : formatDateStr(entry.watchedAt)}
+              {/* History rows can be deleted here; current ones are unmarked from the grid */}
+              {canEdit && !entry.isCurrent && entry._id && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button
+                      className="text-muted-foreground hover:text-[var(--danger-600)] dark:hover:text-[var(--danger-300)] transition-colors"
+                      aria-label="Remove this watch"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Remove this watch?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This removes the S{entry.seasonNumber}E{entry.episodeNumber} watch
+                        {entry.watchedAt !== undefined ? ` from ${formatDateStr(entry.watchedAt)}` : ""}{" "}
+                        from your history. Your current progress isn&rsquo;t affected.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => onRemove(entry._id!)}>Remove</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </span>
           </div>
         ))}
@@ -155,11 +192,13 @@ function WatchHistorySection({
   canEdit,
   onRemoveEntry,
   isRemovingWatchEntry,
+  removeDescription = "This will permanently remove this watch from your history.",
 }: {
   watchHistory?: WatchHistoryEntry[];
   canEdit: boolean;
   onRemoveEntry: (index: number) => Promise<void>;
   isRemovingWatchEntry: boolean;
+  removeDescription?: string;
 }) {
   const entries = (watchHistory ?? [])
     .map((entry, historyIndex) => ({ entry, historyIndex }))
@@ -211,9 +250,7 @@ function WatchHistorySection({
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Remove this watch entry?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently remove this watch from your history.
-                    </AlertDialogDescription>
+                    <AlertDialogDescription>{removeDescription}</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -251,6 +288,7 @@ export function DetailSheet({
   handleStartRewatch,
   handleLogWatchEntry,
   handleRemoveWatchEntry,
+  handleRemoveEpisodeRewatch,
   getSeasonStatus,
   getSeasonProgress,
   formatDate,
@@ -280,7 +318,7 @@ export function DetailSheet({
   const visibleSeasonNumbers = new Set(visibleSeasons.map((s) => s.seasonNumber));
   const allEpisodeWatchDates =
     media.type === "tv"
-      ? episodeWatches.current.filter((w) => visibleSeasonNumbers.has(w.seasonNumber))
+      ? episodeWatches.log.filter((w) => visibleSeasonNumbers.has(w.seasonNumber))
       : [];
 
   // Dropped location display
@@ -385,9 +423,24 @@ export function DetailSheet({
             />
           )}
 
-          {/* TV: all episode watch dates */}
+          {/* TV: earlier watch-throughs of the whole show */}
           {media.type === "tv" && (
-            <TvWatchDatesSection episodeWatchDates={allEpisodeWatchDates} />
+            <WatchHistorySection
+              watchHistory={listItem.watchHistory}
+              canEdit={canEdit}
+              onRemoveEntry={handleRemoveWatchEntry}
+              isRemovingWatchEntry={isRemovingWatchEntry}
+              removeDescription="This removes this watch-through from your history, including its episode watch dates."
+            />
+          )}
+
+          {/* TV: every episode watch, rewatches included */}
+          {media.type === "tv" && (
+            <TvWatchDatesSection
+              entries={allEpisodeWatchDates}
+              canEdit={canEdit}
+              onRemove={handleRemoveEpisodeRewatch}
+            />
           )}
 
           {/* TV: Seasons */}
@@ -457,6 +510,7 @@ export function DetailSheet({
                             airDate={season.airDate}
                             notes={seasonProgress?.notes}
                             episodeWatches={episodeWatches.forSeason(season.seasonNumber)}
+                            previousWatches={seasonProgress?.history}
                             onNotesChange={(notes) => handleSeasonNotesChange(season.seasonNumber, notes)}
                             isUpdatingSeasonNotes={isUpdatingSeasonNotes}
                           />

@@ -25,6 +25,7 @@ import {
   Lock,
   Pencil,
   Plus,
+  Repeat,
   RotateCcw,
   Star,
   Trash2,
@@ -39,6 +40,7 @@ import { MediaCardInnerProps } from "./types";
 import { cn } from "@/lib/utils";
 import { calculateTVStatus } from "@/lib/tv-status";
 import { useEpisodeWatches } from "@/lib/hooks/useEpisodeWatches";
+import { findLastMarked } from "@/lib/episode-tracking";
 import { isEpisodeLocked, resolveEpisodeAirDate } from "@/lib/tv-episodes";
 import { getReleasedNextSeason } from "@/lib/dashboard-sections";
 import { todayLocalISO } from "@/lib/dates";
@@ -82,6 +84,16 @@ export function MediaCardMinimal({
   handleAdvanceEpisode,
   handleRewindEpisode,
   handleMarkSeasonWatched,
+  handleSetEpisodeWatched,
+  handleStartSeasonRewatch,
+  handleStopSeasonRewatch,
+  handleLogEpisodeRewatch,
+  handleRemoveEpisodeRewatch,
+  isStartingSeasonRewatch,
+  isStoppingSeasonRewatch,
+  handleAdvanceSeason,
+  handleRewindSeason,
+  tvMode,
   handleRatingChange,
   handlePriorityChange,
   handleNotesChange,
@@ -102,6 +114,8 @@ export function MediaCardMinimal({
   isAdvancingEpisode,
   isRewindingEpisode,
   isMarkingSeasonWatched,
+  isAdvancingSeason,
+  isRewindingSeason,
   isStartingRewatch,
   isLoggingWatchEntry,
   isRemovingWatchEntry,
@@ -214,10 +228,33 @@ export function MediaCardMinimal({
       })()
     : null;
 
+  // Season mode: the check button finishes the next-up season (aired episodes
+  // only) and undo clears the latest season with any watched episodes
+  const isSeasonMode = isTV && tvMode === "season";
+  const curSeasonProgress = listItem.seasonProgress?.find((p) => p.seasonNumber === curSeason);
+  const curSeasonWatched = returningSeason ? 0 : curSeasonProgress?.watchedCount ?? 0;
+  const curSeasonEpisodeCount = currentSeasonData?.episodeCount ?? 0;
+  const curSeasonHasUnaired = Array.from({ length: curSeasonEpisodeCount }, (_, i) => i + 1).some(
+    (ep) => isEpisodeLocked(currentSeasonData, ep)
+  );
+  // Matches rewindSeason: the season you marked most recently (by position
+  // until episode watches load)
+  const lastMarked = episodeWatches.isLoaded
+    ? findLastMarked(visibleSeasons, episodeWatches.current)
+    : undefined;
+  const latestWatchedSeason = lastMarked
+    ? listItem.seasonProgress?.find((p) => p.seasonNumber === lastMarked.seasonNumber)
+    : [...(listItem.seasonProgress ?? [])]
+        .filter((p) => (p.watchedCount ?? 0) > 0)
+        .sort((a, b) => b.seasonNumber - a.seasonNumber)[0];
+  const isAdvancing = isSeasonMode ? isAdvancingSeason : isAdvancingEpisode;
+  // Undo stays available after the last episode flips the show to Watched
+  const canRewindTv = isTV && (isWatching || isWatched);
+
   const handleAdvanceWithToast = async () => {
     if (currentEpLocked) return;
     const wasToWatch = listItem.status === "to_watch";
-    await handleAdvanceEpisode();
+    await (isSeasonMode ? handleAdvanceSeason() : handleAdvanceEpisode());
     if (wasToWatch) {
       toast.success(`${media.title} moved to Current`);
     }
@@ -331,7 +368,14 @@ export function MediaCardMinimal({
               {/* Episode status subtitle (position shown next to action button) */}
               {showEpisodePosition && (
                 <div className="mt-2">
-                  {isWatching && !currentEpLocked && (
+                  {isWatching && !currentEpLocked && isSeasonMode && (
+                    <div className="text-xs text-muted-foreground tabular-nums">
+                      {seasonsLeft > 0
+                        ? `${seasonsLeft} more ${seasonsLeft === 1 ? "season" : "seasons"}`
+                        : "Final season"}
+                    </div>
+                  )}
+                  {isWatching && !currentEpLocked && !isSeasonMode && (
                     <div className="text-xs text-muted-foreground tabular-nums">
                       {episodesLeft > 0
                         ? `${episodesLeft} ep${episodesLeft !== 1 ? "s" : ""} left${seasonsLeft > 0 ? ` · ${seasonsLeft} ${seasonsLeft === 1 ? "season" : "seasons"} left` : ""}`
@@ -405,8 +449,15 @@ export function MediaCardMinimal({
               {showEpisodePosition && (
                 <div className="flex flex-col items-end">
                   <span className="font-semibold text-base tabular-nums leading-none whitespace-nowrap">
-                    S{String(curSeason).padStart(2, "0")} | E{String(curEpisode).padStart(2, "0")}
+                    {isSeasonMode
+                      ? `S${String(curSeason).padStart(2, "0")}`
+                      : `S${String(curSeason).padStart(2, "0")} | E${String(curEpisode).padStart(2, "0")}`}
                   </span>
+                  {isSeasonMode && !currentEpLocked && curSeasonEpisodeCount > 0 && (
+                    <span className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+                      {curSeasonWatched}/{curSeasonEpisodeCount} eps
+                    </span>
+                  )}
                   {currentEpLocked && currentEpAirDateFormatted && (
                     <span className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
                       {currentEpAirDateFormatted}
@@ -446,21 +497,25 @@ export function MediaCardMinimal({
                     "border-border text-muted-foreground bg-background",
                     "hover:border-[var(--success-600)] hover:text-[var(--success-700)] hover:bg-[var(--success-50)]",
                     "dark:hover:border-[var(--success-400)] dark:hover:text-[var(--success-300)] dark:hover:bg-[var(--success-800)]",
-                    (isAdvancingEpisode || isUpdatingStatus) && "opacity-40 cursor-not-allowed"
+                    (isAdvancing || isUpdatingStatus) && "opacity-40 cursor-not-allowed"
                   )}
                   onClick={handleAdvanceWithToast}
-                  disabled={isAdvancingEpisode || isUpdatingStatus}
+                  disabled={isAdvancing || isUpdatingStatus}
                   title={
-                    returningSeason
-                      ? `Start Season ${returningSeason.seasonNumber}`
-                      : isToWatch
-                        ? "Start watching"
-                        : "Mark episode as watched"
+                    isSeasonMode
+                      ? curSeasonHasUnaired
+                        ? `Mark aired episodes of Season ${curSeason} as watched`
+                        : `Finish Season ${curSeason}`
+                      : returningSeason
+                        ? `Start Season ${returningSeason.seasonNumber}`
+                        : isToWatch
+                          ? "Start watching"
+                          : "Mark episode as watched"
                   }
                 >
                   <Check className={cn(
                     "h-5 w-5",
-                    (isAdvancingEpisode || isUpdatingStatus) && "animate-pulse"
+                    (isAdvancing || isUpdatingStatus) && "animate-pulse"
                   )} />
                 </button>
               )}
@@ -525,6 +580,9 @@ export function MediaCardMinimal({
               const isSeasonWatched = seasonStatus === "watched";
               const isCurrentSeason = season.seasonNumber === curSeason;
               const isSeasonExpanded = expandedSeason === season.seasonNumber;
+              const isSeasonRewatching =
+                listItem.seasonProgress?.find((p) => p.seasonNumber === season.seasonNumber)?.pass !==
+                undefined;
 
               return (
                 <div key={season.seasonNumber} className="rounded-md border border-border overflow-hidden">
@@ -542,9 +600,9 @@ export function MediaCardMinimal({
                       )}>
                         Season {season.seasonNumber}
                       </span>
-                      {isCurrentSeason && !isSeasonWatched && (
+                      {(isSeasonRewatching || isCurrentSeason) && !isSeasonWatched && (
                         <Badge className="text-[10px] px-1.5 py-0 bg-[var(--primary-100)] dark:bg-[var(--primary-800)] text-[var(--primary-700)] dark:text-[var(--primary-200)] border-0">
-                          Watching
+                          {isSeasonRewatching ? "Rewatching" : "Watching"}
                         </Badge>
                       )}
                       {isSeasonWatched && (
@@ -574,6 +632,13 @@ export function MediaCardMinimal({
                         canEdit={canEdit}
                         onMarkSeasonWatched={handleMarkSeasonWatched}
                         isMarkingSeasonWatched={isMarkingSeasonWatched}
+                        onSetEpisodeWatched={handleSetEpisodeWatched}
+                        watchLog={episodeWatches.logForSeason(season.seasonNumber)}
+                        isRewatching={isSeasonRewatching}
+                        onLogEpisodeRewatch={handleLogEpisodeRewatch}
+                        onStartSeasonRewatch={handleStartSeasonRewatch}
+                        onStopSeasonRewatch={handleStopSeasonRewatch}
+                        isUpdatingSeasonRewatch={isStartingSeasonRewatch || isStoppingSeasonRewatch}
                       />
                     </div>
                   )}
@@ -649,11 +714,11 @@ export function MediaCardMinimal({
               </div>
             )}
 
-            {/* Footer: undo episode (TV watching), edit details, delete */}
+            {/* Footer: undo episode/season (TV watching or watched), edit details, delete */}
             {canEdit && (
               <div className="flex items-center justify-between pt-2 border-t border-border mt-1">
-                <div className="flex items-center gap-1">
-                  {isWatching && isTV && (
+                <div className="flex flex-wrap items-center gap-1">
+                  {canRewindTv && !isSeasonMode && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -664,6 +729,70 @@ export function MediaCardMinimal({
                       <RotateCcw className="h-3 w-3" />
                       Undo episode
                     </Button>
+                  )}
+                  {canRewindTv && isSeasonMode && latestWatchedSeason && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+                          disabled={isRewindingSeason}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          Undo season
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Unmark Season {latestWatchedSeason.seasonNumber}?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This clears all {latestWatchedSeason.watchedCount} watched{" "}
+                            {latestWatchedSeason.watchedCount === 1 ? "episode" : "episodes"} in
+                            Season {latestWatchedSeason.seasonNumber}, including their watch dates.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleRewindSeason}>
+                            Unmark season
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                  {isTV && isWatched && !returningSeason && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+                          disabled={isStartingRewatch}
+                        >
+                          <Repeat className="h-3 w-3" />
+                          Rewatch
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Rewatch {media.title}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Every episode resets to unwatched and the show moves back to Watching.
+                            This watch&rsquo;s dates, rating and notes are saved to its watch
+                            history. To rewatch just one season, open it and use Rewatch season.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleStartRewatch}>
+                            Start rewatch
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
                   <Button
                     variant="ghost"
@@ -729,6 +858,7 @@ export function MediaCardMinimal({
         handleStartRewatch={handleStartRewatch}
         handleLogWatchEntry={handleLogWatchEntry}
         handleRemoveWatchEntry={handleRemoveWatchEntry}
+        handleRemoveEpisodeRewatch={handleRemoveEpisodeRewatch}
         getSeasonStatus={getSeasonStatus}
         getSeasonProgress={getSeasonProgress}
         formatDate={formatDate}

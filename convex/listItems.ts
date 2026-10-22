@@ -13,9 +13,12 @@ import {
 import { buildMediaSnapshot } from "../lib/media-snapshot";
 import {
   buildWatchedMap,
-  findLatestWatched,
+  findLastMarked,
   findNextUp,
   getTrackedSeasons,
+  nextPassNumber,
+  seasonPass,
+  type EpisodeMark,
   type EpisodeRef,
 } from "../lib/episode-tracking";
 import {
@@ -971,7 +974,7 @@ export const advanceEpisode = mutation({
   },
 });
 
-// Unmark the latest watched episode (undo last advance)
+// Unmark the most recently marked episode (undo last advance)
 export const rewindEpisode = mutation({
   args: { listItemId: v.id("listItems") },
   handler: async (ctx, args) => {
@@ -981,7 +984,7 @@ export const rewindEpisode = mutation({
     if (seasons.length === 0) throw new Error("No season data available");
 
     const { rows } = await ensureEpisodeWatches(ctx, listItem, media);
-    const latest = findLatestWatched(seasons, buildWatchedMap(rows));
+    const latest = findLastMarked(seasons, rows);
     if (!latest) return;
 
     await applyEpisodeChanges(ctx, listItem, media, { unmark: [latest] });
@@ -1007,15 +1010,184 @@ export const markSeasonWatched = mutation({
   },
 });
 
-// Toggle a single episode in the current pass
+// Season mode: mark every aired episode in the next-up season as watched,
+// filling any gaps the viewer skipped
+export const advanceSeason = mutation({
+  args: { listItemId: v.id("listItems") },
+  handler: async (ctx, args) => {
+    const { listItem, media } = await getEditableTvItem(ctx, args.listItemId);
+
+    const seasons = getTrackedSeasons(media.seasonData);
+    if (seasons.length === 0) throw new Error("No season data available");
+
+    const { rows } = await ensureEpisodeWatches(ctx, listItem, media);
+    const nextUp = findNextUp(seasons, buildWatchedMap(rows));
+    if (!nextUp) return;
+
+    const season = seasons.find((s) => s.seasonNumber === nextUp.seasonNumber)!;
+    assertEpisodeHasAired(
+      nextUp.seasonNumber,
+      nextUp.episodeNumber,
+      resolveEpisodeAirDate(season, nextUp.episodeNumber)
+    );
+
+    await applyEpisodeChanges(ctx, listItem, media, {
+      mark: seasonEpisodes(season.seasonNumber, season.episodeCount).filter(
+        (ref) => !isEpisodeUnreleased(resolveEpisodeAirDate(season, ref.episodeNumber))
+      ),
+    });
+  },
+});
+
+// Season mode: unmark every current episode in the season you marked most recently
+export const rewindSeason = mutation({
+  args: { listItemId: v.id("listItems") },
+  handler: async (ctx, args) => {
+    const { listItem, media } = await getEditableTvItem(ctx, args.listItemId);
+
+    const seasons = getTrackedSeasons(media.seasonData);
+    if (seasons.length === 0) throw new Error("No season data available");
+
+    const { rows } = await ensureEpisodeWatches(ctx, listItem, media);
+    const latest = findLastMarked(seasons, rows);
+    if (!latest) return;
+
+    await applyEpisodeChanges(ctx, listItem, media, {
+      unmark: rows.filter((r) => r.seasonNumber === latest.seasonNumber),
+    });
+  },
+});
+
+// Rewatch one season: its episodes reset to unwatched under a new pass. The
+// old pass's rows stay as history and the season's dates are archived.
+export const startSeasonRewatch = mutation({
+  args: { listItemId: v.id("listItems"), seasonNumber: v.number() },
+  handler: async (ctx, args) => {
+    const { listItem, media } = await getEditableTvItem(ctx, args.listItemId);
+    const n = args.seasonNumber;
+    if (!getTrackedSeason(media, n)) throw new Error(`Season ${n} not found`);
+
+    const { pass, rows, all } = await ensureEpisodeWatches(ctx, listItem, media);
+    if (!rows.some((r) => r.seasonNumber === n)) {
+      throw new Error(`Season ${n} has no watched episodes to rewatch`);
+    }
+
+    const progress = listItem.seasonProgress ?? [];
+    const entry = progress.find((p) => p.seasonNumber === n);
+    const updated = {
+      ...(entry ?? { seasonNumber: n }),
+      status: entry && entry.status !== "dropped" ? entry.status : ("to_watch" as const),
+      pass: nextPassNumber(all, pass),
+      history: [
+        ...(entry?.history ?? []),
+        { pass: seasonPass(progress, pass, n), startedAt: entry?.startedAt, finishedAt: entry?.finishedAt },
+      ],
+      startedAt: undefined,
+      finishedAt: undefined,
+    };
+
+    await applyEpisodeChanges(ctx, listItem, media, {
+      seasonProgress: entry
+        ? progress.map((p) => (p.seasonNumber === n ? updated : p))
+        : [...progress, updated],
+      inProgress: true,
+      keepShowDates: true,
+    });
+  },
+});
+
+// Abandon a season rewatch: the previous watch becomes current again and
+// episodes watched during the rewatch stay as one-off rewatches
+export const stopSeasonRewatch = mutation({
+  args: { listItemId: v.id("listItems"), seasonNumber: v.number() },
+  handler: async (ctx, args) => {
+    const { listItem, media } = await getEditableTvItem(ctx, args.listItemId);
+    const n = args.seasonNumber;
+    const progress = listItem.seasonProgress ?? [];
+    const entry = progress.find((p) => p.seasonNumber === n);
+    const previous = entry?.history?.[entry.history.length - 1];
+    if (!entry || entry.pass === undefined || !previous) {
+      throw new Error(`Season ${n} isn't being rewatched`);
+    }
+
+    const { pass } = await ensureEpisodeWatches(ctx, listItem, media);
+    const history = entry.history!.slice(0, -1);
+    const restored = {
+      ...entry,
+      pass: previous.pass === pass ? undefined : previous.pass,
+      history: history.length > 0 ? history : undefined,
+      startedAt: previous.startedAt,
+      finishedAt: previous.finishedAt,
+    };
+
+    await applyEpisodeChanges(ctx, listItem, media, {
+      seasonProgress: progress.map((p) => (p.seasonNumber === n ? restored : p)),
+      keepShowDates: true,
+    });
+  },
+});
+
+// Log a one-off rewatch of an episode you've already watched. It doesn't
+// change progress — the row lives in its own pass as history.
+export const logEpisodeRewatch = mutation({
+  args: {
+    listItemId: v.id("listItems"),
+    seasonNumber: v.number(),
+    episodeNumber: v.number(),
+  },
+  handler: async (ctx, args): Promise<Id<"episodeWatches">> => {
+    const { listItem, media } = await getEditableTvItem(ctx, args.listItemId);
+    const { pass, rows, all } = await ensureEpisodeWatches(ctx, listItem, media);
+    const watched = rows.some(
+      (r) => r.seasonNumber === args.seasonNumber && r.episodeNumber === args.episodeNumber
+    );
+    if (!watched) {
+      throw new Error(`Mark S${args.seasonNumber}E${args.episodeNumber} as watched first`);
+    }
+
+    const id = await ctx.db.insert("episodeWatches", {
+      listItemId: listItem._id,
+      pass: nextPassNumber(all, pass),
+      seasonNumber: args.seasonNumber,
+      episodeNumber: args.episodeNumber,
+      watchedAt: Date.now(),
+    });
+    // Stamps migration (if this was the item's first write) and touches the list
+    await applyEpisodeChanges(ctx, listItem, media, { preserveDropped: true });
+    return id;
+  },
+});
+
+// Delete a history watch (a logged rewatch). Current watches are removed by
+// unmarking instead.
+export const removeEpisodeRewatch = mutation({
+  args: { watchId: v.id("episodeWatches") },
+  handler: async (ctx, args) => {
+    const watch = await ctx.db.get(args.watchId);
+    if (!watch) return;
+    const { listItem } = await getEditableTvItem(ctx, watch.listItemId);
+    const currentPass = seasonPass(listItem.seasonProgress, listItem.watchPass ?? 1, watch.seasonNumber);
+    if (watch.pass === currentPass) throw new Error("Unmark the episode instead");
+
+    await ctx.db.delete(args.watchId);
+    await ctx.db.patch(listItem.listId, { updatedAt: Date.now() });
+  },
+});
+
+// Toggle a single episode in the current pass. `alsoMarkEarlier` fills the
+// season's unwatched aired episodes before it; `restoreWatchedAt` re-marks with
+// a previous date (null = date unknown) to undo an unmark. Unmarking returns
+// the removed watch date so the client can offer that undo.
 export const setEpisodeWatched = mutation({
   args: {
     listItemId: v.id("listItems"),
     seasonNumber: v.number(),
     episodeNumber: v.number(),
     watched: v.boolean(),
+    alsoMarkEarlier: v.optional(v.boolean()),
+    restoreWatchedAt: v.optional(v.union(v.number(), v.null())),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ removedWatchedAt: number | null } | null> => {
     const { listItem, media } = await getEditableTvItem(ctx, args.listItemId);
 
     const season = getTrackedSeason(media, args.seasonNumber);
@@ -1024,16 +1196,36 @@ export const setEpisodeWatched = mutation({
     }
 
     const ref = { seasonNumber: args.seasonNumber, episodeNumber: args.episodeNumber };
-    if (args.watched) {
-      assertEpisodeHasAired(
-        ref.seasonNumber,
-        ref.episodeNumber,
-        resolveEpisodeAirDate(season, ref.episodeNumber)
+
+    if (!args.watched) {
+      const { rows } = await ensureEpisodeWatches(ctx, listItem, media);
+      const row = rows.find(
+        (r) => r.seasonNumber === ref.seasonNumber && r.episodeNumber === ref.episodeNumber
       );
-      await applyEpisodeChanges(ctx, listItem, media, { mark: [ref] });
-    } else {
+      if (!row) return null;
       await applyEpisodeChanges(ctx, listItem, media, { unmark: [ref] });
+      return { removedWatchedAt: row.watchedAt ?? null };
     }
+
+    assertEpisodeHasAired(
+      ref.seasonNumber,
+      ref.episodeNumber,
+      resolveEpisodeAirDate(season, ref.episodeNumber)
+    );
+    const restored = args.restoreWatchedAt;
+    if (typeof restored === "number" && (!Number.isFinite(restored) || restored > Date.now())) {
+      throw new Error("Invalid watch date");
+    }
+
+    const mark: EpisodeMark[] = [{ ...ref, watchedAt: restored }];
+    if (args.alsoMarkEarlier) {
+      for (let ep = 1; ep < ref.episodeNumber; ep++) {
+        if (isEpisodeUnreleased(resolveEpisodeAirDate(season, ep))) continue;
+        mark.push({ seasonNumber: ref.seasonNumber, episodeNumber: ep });
+      }
+    }
+    await applyEpisodeChanges(ctx, listItem, media, { mark });
+    return null;
   },
 });
 
@@ -1242,9 +1434,24 @@ export const removeWatchEntry = mutation({
     if (media?.type === "tv") {
       const { pass } = await ensureEpisodeWatches(ctx, listItem, media);
       const history = stampHistoryPasses(existing);
-      const removedPass = history[args.entryIndex].pass;
-      for (const row of await loadPassWatches(ctx, listItem._id, removedPass)) {
-        await ctx.db.delete(row._id);
+      const removed = history[args.entryIndex];
+      // The entry's own pass plus any season rewatches made during it
+      const removedPasses = new Set([
+        removed.pass,
+        ...(removed.seasons ?? []).flatMap((season) => [
+          ...(season.pass !== undefined ? [season.pass] : []),
+          ...(season.history ?? []).map((h) => h.pass),
+        ]),
+      ]);
+      const livePasses = new Set([
+        pass,
+        ...(listItem.seasonProgress ?? []).flatMap((p) => (p.pass !== undefined ? [p.pass] : [])),
+      ]);
+      for (const removedPass of removedPasses) {
+        if (livePasses.has(removedPass)) continue;
+        for (const row of await loadPassWatches(ctx, listItem._id, removedPass)) {
+          await ctx.db.delete(row._id);
+        }
       }
       await ctx.db.patch(args.listItemId, {
         watchPass: pass,
@@ -1300,7 +1507,7 @@ export const startRewatch = mutation({
 
     // Episode watches stay in episodeWatches under this pass; the history
     // entry keeps the show/season-level dates, ratings and notes
-    const { pass } = await ensureEpisodeWatches(ctx, listItem, media);
+    const { pass, all } = await ensureEpisodeWatches(ctx, listItem, media);
 
     const seasons = (listItem.seasonProgress ?? []).map((p) => ({
       seasonNumber: p.seasonNumber,
@@ -1308,6 +1515,8 @@ export const startRewatch = mutation({
       finishedAt: p.finishedAt,
       rating: p.rating,
       notes: p.notes,
+      pass: p.pass,
+      history: p.history,
     }));
 
     const historyEntry = {
@@ -1329,7 +1538,7 @@ export const startRewatch = mutation({
 
     const reset = await ctx.db.get(args.listItemId);
     await applyEpisodeChanges(ctx, reset!, media, {
-      pass: pass + 1,
+      pass: nextPassNumber(all, pass),
       seasonProgress: [],
       inProgress: true,
     });

@@ -9,6 +9,10 @@ export type TrackingStatus = "to_watch" | "watching" | "watched" | "dropped";
 /** Version stamped on list items whose episode watches live in episodeWatches */
 export const EPISODE_TRACKING_VERSION = 2;
 
+/** Whether TV cards advance a whole season or one episode at a time */
+export type TvTrackingMode = "season" | "episode";
+export const DEFAULT_TV_TRACKING_MODE: TvTrackingMode = "season";
+
 export interface TrackedSeason {
   seasonNumber: number;
   episodeCount: number;
@@ -20,9 +24,21 @@ export interface EpisodeRef {
   episodeNumber: number;
 }
 
+/** An episode to mark watched. `watchedAt`: omitted = now, null = date unknown */
+export interface EpisodeMark extends EpisodeRef {
+  watchedAt?: number | null;
+}
+
 export interface EpisodeWatchRow extends EpisodeRef {
   pass: number;
   watchedAt?: number;
+}
+
+/** A finished-with season watch, archived when the season is rewatched */
+export interface SeasonWatchArchive {
+  pass: number;
+  startedAt?: number;
+  finishedAt?: number;
 }
 
 export interface SeasonProgressLike {
@@ -33,6 +49,9 @@ export interface SeasonProgressLike {
   startedAt?: number;
   finishedAt?: number;
   watchedCount?: number;
+  /** This season's pass while it's on a season rewatch (else the item's watchPass) */
+  pass?: number;
+  history?: SeasonWatchArchive[];
   episodeDates?: Array<{ episodeNumber: number; watchedAt: number }>;
 }
 
@@ -46,6 +65,32 @@ export function getTrackedSeasons<T extends TrackedSeason>(
   return (seasonData ?? [])
     .filter((s) => s.airDate)
     .sort((a, b) => a.seasonNumber - b.seasonNumber);
+}
+
+/** The pass a season's current watches live in. */
+export function seasonPass(
+  seasonProgress: SeasonProgressLike[] | undefined,
+  defaultPass: number,
+  seasonNumber: number
+): number {
+  return seasonProgress?.find((p) => p.seasonNumber === seasonNumber)?.pass ?? defaultPass;
+}
+
+/** Rows in each season's current pass — the ones that count as progress. */
+export function selectCurrentWatches<T extends EpisodeRef & { pass: number }>(
+  rows: T[],
+  seasonProgress: SeasonProgressLike[] | undefined,
+  defaultPass: number
+): T[] {
+  return rows.filter((r) => r.pass === seasonPass(seasonProgress, defaultPass, r.seasonNumber));
+}
+
+/**
+ * A fresh pass number for a show, season or episode rewatch. Always above
+ * every existing pass, so passes never collide and sort chronologically.
+ */
+export function nextPassNumber(rows: Array<{ pass: number }>, currentPass: number): number {
+  return Math.max(currentPass, ...rows.map((r) => r.pass)) + 1;
 }
 
 export function buildWatchedMap(rows: EpisodeRef[]): WatchedMap {
@@ -76,6 +121,30 @@ export function countWatchedInSeason(map: WatchedMap, season: TrackedSeason): nu
 
 function isSeasonComplete(map: WatchedMap, season: TrackedSeason): boolean {
   return season.episodeCount > 0 && countWatchedInSeason(map, season) >= season.episodeCount;
+}
+
+/**
+ * The watch "undo" should take back: the most recently marked episode, with
+ * position breaking ties and ordering undated (backfilled) rows. Only rows in
+ * tracked seasons count.
+ */
+export function findLastMarked<T extends EpisodeRef & { watchedAt?: number }>(
+  seasons: TrackedSeason[],
+  rows: T[]
+): T | undefined {
+  const tracked = new Map(seasons.map((s) => [s.seasonNumber, s.episodeCount]));
+  return rows
+    .filter((r) => r.episodeNumber <= (tracked.get(r.seasonNumber) ?? 0))
+    .reduce<T | undefined>((last, r) => {
+      if (!last) return r;
+      const a = last.watchedAt ?? -Infinity;
+      const b = r.watchedAt ?? -Infinity;
+      if (b !== a) return b > a ? r : last;
+      const later =
+        r.seasonNumber > last.seasonNumber ||
+        (r.seasonNumber === last.seasonNumber && r.episodeNumber > last.episodeNumber);
+      return later ? r : last;
+    }, undefined);
 }
 
 /** The furthest-along watched episode, by position. */
@@ -209,7 +278,9 @@ export function pruneSeasonProgress(progress: SeasonProgressLike[]): SeasonProgr
       p.rating !== undefined ||
       p.notes ||
       p.startedAt !== undefined ||
-      p.finishedAt !== undefined
+      p.finishedAt !== undefined ||
+      p.pass !== undefined ||
+      (p.history?.length ?? 0) > 0
   );
 }
 
