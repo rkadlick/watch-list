@@ -21,6 +21,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Watch List - Movie & TV Tracker",
   description: "Track your favorite movies and TV shows",
+  appleWebApp: {
+    capable: true,
+    title: "Watch List",
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {
